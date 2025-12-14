@@ -6,8 +6,7 @@ on:
 
 jobs:
   build:
-    # XC8 macOS installer is x64; use Intel runners to avoid Rosetta dependency.
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,7 +24,7 @@ jobs:
             find /Volumes/xc8 -maxdepth 3 -type f
             exit 1
           fi
-          sudo "$installer" --mode unattended --unattendedmodeui none --netservername localhost --prefix /Applications/microchip/xc8/v3.10
+          sudo arch -x86_64 "$installer" --mode unattended --unattendedmodeui none --netservername localhost --prefix /Applications/microchip/xc8/v3.10
           hdiutil detach /Volumes/xc8
 
       - name: Fetch PIC16F1xxxx device pack
