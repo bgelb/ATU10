@@ -8,7 +8,7 @@
 #include "Soft_I2C.h"
 
 // Match mikroC config words from ATU-10.cfg.
-// XC8 reads config bit settings from these pragmas (typical practice for PIC projects).
+// XC8 reads config bits from these pragmas (see XC8 User Guide section 5.2.5); this is the standard way to set fuses.
 #pragma config CONFIG1 = 0x2904
 #pragma config CONFIG2 = 0x3E21
 #pragma config CONFIG3 = 0x3F1F
