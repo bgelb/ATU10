@@ -3,9 +3,13 @@
 
 #include <stdio.h>
 #include "pic_init.h"
+
 #include "main.h"
 #include "oled_control.h"
+
 #include "Soft_I2C.h"
+#include "xc8_compat.h"
+#include "xc8_adc.h"
 
 // Match mikroC config words from ATU-10.cfg.
 // XC8 reads config bits from these pragmas (see XC8 User Guide section 5.2.5); this is the standard way to set fuses.
@@ -37,10 +41,6 @@ const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13
 
 #define FW_VER "1.6XC"
 
-#define _ADC_INTERNAL_VREFL 0x01
-#define _ADC_INTERNAL_FVRH1 0x02
-#define _ADC_INTERNAL_FVRH2 0x04
-#define _ADC_INTERNAL_VREFH 0x08
 
 // interrupt processing
 void __interrupt() isr(void)  {
@@ -968,52 +968,5 @@ void cells_reading(void){
    return;
 }
 
-int IntToStr(int value, char *out){
-   // mikroC's IntToStr emits a 6-wide, space-padded string; mimic that here.
-   sprintf(out, "%6d", value);
-   return 0;
-}
-
-unsigned char Bcd2Dec(unsigned char bcd){
-   return (unsigned char)((bcd >> 4) * 10u + (bcd & 0x0Fu));
-}
-
-static void adc_apply_vref(unsigned char cfg){
-   ADREFbits.ADNREF = 0; // Vss
-   if(cfg & _ADC_INTERNAL_VREFH){
-      ADREFbits.ADPREF = 0; // Vdd
-      FVRCONbits.FVREN = 0;
-      return;
-   }
-   FVRCONbits.FVREN = 1;
-   if(cfg & _ADC_INTERNAL_FVRH2)
-      FVRCONbits.ADFVR = 1; // 2x (2.048V)
-   else
-      FVRCONbits.ADFVR = 0; // 1x (1.024V)
-   while(!FVRCONbits.FVRRDY);
-   ADREFbits.ADPREF = 2; // FVR as positive reference
-}
-
-void ADC_Init(void){
-   ADC_Init_Advanced(_ADC_INTERNAL_VREFL | _ADC_INTERNAL_FVRH1);
-}
-
-void ADC_Init_Advanced(unsigned char cfg){
-   ADCON0bits.ADON = 0;
-   adc_apply_vref(cfg);
-   ADCLK = 3;        // Fosc/8 for TAD
-   ADACQ = 10;       // Acquisition delay
-   ADPCH = 0x3F;     // No channel selected
-   ADCON0bits.ADFM = 1;  // Right-justified
-   ADCON0bits.ADON = 1;
-}
-
-unsigned int ADC_Get_Sample(unsigned char channel){
-   ADPCH = channel;
-   __delay_us(5);
-   ADGO = 1;
-   while(ADGO);
-   return ADRES;
-}
 
 //

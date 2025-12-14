@@ -5,6 +5,7 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 // Shim layer to mimic mikroC idioms (delays, bitfields) when building under XC8.
 #define _XTAL_FREQ 32000000UL
@@ -42,5 +43,7 @@ typedef union {
 #define B6 bits.b6
 #define B7 bits.b7
 
+int IntToStr(int value, char *out);
+unsigned char Bcd2Dec(unsigned char bcd);
 
 #endif // ATU10_XC8_COMPAT_H

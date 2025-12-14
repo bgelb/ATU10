@@ -37,12 +37,6 @@ void Greating(void);
 void Ext_long(void);
 void cells_reading(void);
 
-int IntToStr(int value, char *out);
-unsigned char Bcd2Dec(unsigned char bcd);
-void ADC_Init(void);
-void ADC_Init_Advanced(unsigned char cfg);
-unsigned int ADC_Get_Sample(unsigned char channel);
-
 #define ON 1
 #define OFF 0
 #define Battery_input 9
