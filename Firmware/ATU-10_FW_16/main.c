@@ -1,10 +1,18 @@
 // David Fainitski, N7DDC
 // 2020
 
+#include <stdio.h>
 #include "pic_init.h"
 #include "main.h"
 #include "oled_control.h"
 #include "Soft_I2C.h"
+
+// Match mikroC config words from ATU-10.cfg
+#pragma config CONFIG1 = 0x2904
+#pragma config CONFIG2 = 0x3E21
+#pragma config CONFIG3 = 0x3F1F
+#pragma config CONFIG4 = 0x3003
+#pragma config CONFIG5 = 0x0003
 
 
 // global variables
@@ -15,23 +23,28 @@ char btn_1_cnt = 0, btn_2_cnt = 0;
 unsigned long volt_cnt = 0, watch_cnt = 0, btn_cnt = 0, off_cnt = 10, disp_cnt=10;
 int PWR, SWR, SWR_ind = 0, SWR_fixed_old = 100, PWR_fixed_old = 9999, rldl;
 char ind = 0, cap = 0, SW = 0;
-bit Overflow, B_short, B_long, B_xlong, gre, E_short, E_long;
+bool Overflow = false, B_short = false, B_long = false, B_xlong = false, gre = false, E_short = false, E_long = false;
 
 // depending on Cells
 unsigned long Disp_time, Off_time;
 int Rel_Del, min_for_start, max_for_start, Auto_delta, Peak_cnt;
-bit Auto;
+bool Auto;
 float Cal_a, Cal_b;
 // Cells
-const char Cells[10] = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13, 0x01, 0x04, 0x14, 0x60} absolute 0x7770;
+const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13, 0x01, 0x04, 0x14, 0x60};
 
-#define FW_VER "1.6"
+#define FW_VER "1.6XC"
+
+#define _ADC_INTERNAL_VREFL 0x01
+#define _ADC_INTERNAL_FVRH1 0x02
+#define _ADC_INTERNAL_FVRH2 0x04
+#define _ADC_INTERNAL_VREFH 0x08
 
 // interrupt processing
-void interupt() iv 0x0004  {
+void __interrupt() isr(void)  {
    //
-   if(TMR0IF_bit) {   // Timer0   every 1ms
-      TMR0IF_bit = 0;
+   if(PIR0bits.TMR0IF) {   // Timer0   every 1ms
+      PIR0bits.TMR0IF = 0;
       Tick++;
       if(disp_cnt!=0) disp_cnt--;
       if(off_cnt!=0) off_cnt--;
@@ -49,9 +62,9 @@ void interupt() iv 0x0004  {
          if(GetButton){  //
             if(btn_1_cnt<250) btn_1_cnt++;
             if(btn_1_cnt==25) B_long = 1;  // long pressing detected
-            if(btn_1_cnt==250 & OLED_PWD) B_xlong = 1;  // Xtra long pressing detected
+            if(btn_1_cnt==250 && OLED_PWD) B_xlong = 1;  // Xtra long pressing detected
          }
-         else if(btn_1_cnt>2 & btn_1_cnt<25){
+         else if(btn_1_cnt>2 && btn_1_cnt<25){
             B_short = 1;               // short pressing detected
             btn_1_cnt = 0;
          }
@@ -60,9 +73,9 @@ void interupt() iv 0x0004  {
          //  External interface
          if(Start){
             if(btn_2_cnt<25) btn_2_cnt++;
-            if(btn_2_cnt==20 & Key_in) E_long = 1;
+            if(btn_2_cnt==20 && Key_in) E_long = 1;
          }
-         else if(btn_2_cnt>1 & btn_2_cnt<10){
+         else if(btn_2_cnt>1 && btn_2_cnt<10){
             E_short = 1;
             btn_2_cnt = 0;
          }
@@ -387,7 +400,7 @@ void Greating(){
    oled_wr_str_s(3, 0, " FW VERSION ", 12);
    oled_wr_str_s(3, 12*7, FW_VER, 3);
    Delay_ms(3000);
-   while(GetButton) asm NOP;
+   while(GetButton) __asm("nop");
    Green = 1;
    return;
 }
@@ -401,21 +414,23 @@ void atu_reset(){
 }
 //
 void Relay_set(char L, char C, char I){
-   L_010 = ~L.B0;
-   L_022 = ~L.B1;
-   L_045 = ~L.B2;
-   L_100 = ~L.B3;
-   L_220 = ~L.B4;
-   L_450 = ~L.B5;
-   L_1000 = ~L.B6;
+   bits8_t L_bits = {.value = (uint8_t)L};
+   bits8_t C_bits = {.value = (uint8_t)C};
+   L_010 = (uint8_t)(~L_bits.B0) & 0x01;
+   L_022 = (uint8_t)(~L_bits.B1) & 0x01;
+   L_045 = (uint8_t)(~L_bits.B2) & 0x01;
+   L_100 = (uint8_t)(~L_bits.B3) & 0x01;
+   L_220 = (uint8_t)(~L_bits.B4) & 0x01;
+   L_450 = (uint8_t)(~L_bits.B5) & 0x01;
+   L_1000 = (uint8_t)(~L_bits.B6) & 0x01;
    //
-   C_22 = ~C.B0;
-   C_47 = ~C.B1;
-   C_100 = ~C.B2;
-   C_220 = ~C.B3;
-   C_470 = ~C.B4;
-   C_1000 = ~C.B5;
-   C_2200 = ~C.B6;
+   C_22 = (uint8_t)(~C_bits.B0) & 0x01;
+   C_47 = (uint8_t)(~C_bits.B1) & 0x01;
+   C_100 = (uint8_t)(~C_bits.B2) & 0x01;
+   C_220 = (uint8_t)(~C_bits.B3) & 0x01;
+   C_470 = (uint8_t)(~C_bits.B4) & 0x01;
+   C_1000 = (uint8_t)(~C_bits.B5) & 0x01;
+   C_2200 = (uint8_t)(~C_bits.B6) & 0x01;
    //
    C_sw = I;
    //
@@ -452,12 +467,12 @@ void Relay_set(char L, char C, char I){
 void power_off(void){
    char button_cnt;
    // Disable interrupts
-   GIE_bit = 0;
-   T0EN_bit = 0;
-   TMR0IF_bit = 0;
-   IOCIE_bit = 1;
-   IOCBF5_bit = 0;
-   IOCBN5_bit = 1;
+   INTCONbits.GIE = 0;
+   T0CON0bits.T0EN = 0;
+   PIR0bits.TMR0IF = 0;
+   PIE0bits.IOCIE = 1;
+   IOCBFbits.IOCBF5 = 0;
+   IOCBNbits.IOCBN5 = 1;
    // Power saving
    OLED_PWD = 0;
    Red = 1;
@@ -465,23 +480,23 @@ void power_off(void){
    //
    button_cnt = 0;
    while(1){
-      if(button_cnt==0){ Delay_ms(100); IOCBF5_bit = 0; asm sleep; }
-      asm NOP;
+      if(button_cnt==0){ Delay_ms(100); IOCBFbits.IOCBF5 = 0; __asm("sleep"); }
+      __asm("nop");
       Delay_ms(100);
       if(GetButton) button_cnt++;
       else button_cnt = 0;
       if(button_cnt>15) break;
    }
    // Enable interrupts
-   IOCIE_bit = 0;
-   IOCBN5_bit = 0;
-   IOCBF5_bit = 0;
-   T0EN_bit = 1;
-   GIE_bit = 1;
+   PIE0bits.IOCIE = 0;
+   IOCBNbits.IOCBN5 = 0;
+   IOCBFbits.IOCBF5 = 0;
+   T0CON0bits.T0EN = 1;
+   INTCONbits.GIE = 1;
    // Return to work
    gre = 1;
    oled_start();
-   while(GetButton){asm NOP;}
+   while(GetButton){__asm("nop");}
    btn_1_cnt = 0;
    B_short = 0;
    B_long = 0;
@@ -492,11 +507,11 @@ void power_off(void){
 //
 void check_reset_flags(void){
    char i = 0;
-   if(STKOVF_bit){oled_wr_str_s(0,  0, "Stack overflow",  14); i = 1;}
-   if(STKUNF_bit){oled_wr_str_s(1,  0, "Stack underflow", 15); i = 1;}
-   if(!nRWDT_bit){oled_wr_str_s(2,  0, "WDT overflow",    12); i = 1;}
-   if(!nRMCLR_bit){oled_wr_str_s(3, 0, "MCLR reset  ",    12); i = 1;}
-   if(!nBOR_bit){oled_wr_str_s(4,   0, "BOR reset  ",     12); i = 1;}
+   if(PCON0bits.STKOVF){oled_wr_str_s(0,  0, "Stack overflow",  14); i = 1;}
+   if(PCON0bits.STKUNF){oled_wr_str_s(1,  0, "Stack underflow", 15); i = 1;}
+   if(!PCON0bits.nRWDT){oled_wr_str_s(2,  0, "WDT overflow",    12); i = 1;}
+   if(!PCON0bits.nRMCLR){oled_wr_str_s(3, 0, "MCLR reset  ",    12); i = 1;}
+   if(!PCON0bits.nBOR){oled_wr_str_s(4,   0, "BOR reset  ",     12); i = 1;}
    if(i){
       Delay_ms(5000);
       oled_clear();
@@ -589,13 +604,12 @@ void get_pwr(){
 //
 float sqrt_n(float x){   // Thanks, Newton !
    char i;
-   const char n = 8;
-   float a[n];
+   float a[8];
    a[0] = x/2;
-   for(i=1; i<(n); i++)
+   for(i=1; i<8; i++)
       a[i] = (a[i-1] + x/a[i-1]) / 2;
    //
-   return a[n-1];
+   return a[7];
 }
 //
 void get_swr(){
@@ -634,7 +648,7 @@ void get_swr(){
          }
       }
       //
-      if(PWR>min_for_start & PWR<max_for_start)
+      if(PWR>min_for_start && PWR<max_for_start)
          break;
       //
       if(pwr_cnt>0){
@@ -717,7 +731,7 @@ void coarse_tune(void){
    SWR_mem1 = SWR;
    ind_mem1 = ind;
    cap_mem1 = cap;
-   if(cap<=2 & ind<=2){
+   if(cap<=2 && ind<=2){
       cap = 0;
       ind = 0;
       Relay_set(ind, cap, SW);
@@ -729,7 +743,7 @@ void coarse_tune(void){
       ind_mem2 = ind;
       cap_mem2 = cap;
    }
-   if(cap<=2 & ind<=2){
+   if(cap<=2 && ind<=2){
       cap = 0;
       ind = 0;
       Relay_set(ind, cap, SW);
@@ -740,15 +754,15 @@ void coarse_tune(void){
       ind_mem3 = ind;
       cap_mem3 = cap;
    }
-   if(SWR_mem1<=SWR_mem2 & SWR_mem1<=SWR_mem3){
+   if(SWR_mem1<=SWR_mem2 && SWR_mem1<=SWR_mem3){
       cap = cap_mem1;
       ind = ind_mem1;
    }
-   else if(SWR_mem2<=SWR_mem1 & SWR_mem2<=SWR_mem3){
+   else if(SWR_mem2<=SWR_mem1 && SWR_mem2<=SWR_mem3){
       cap = cap_mem2;
       ind = ind_mem2;
    }
-   else if(SWR_mem3<=SWR_mem1 & SWR_mem3<=SWR_mem2){
+   else if(SWR_mem3<=SWR_mem1 && SWR_mem3<=SWR_mem2){
       cap = cap_mem3;
       ind = ind_mem3;
    }
@@ -950,6 +964,54 @@ void cells_reading(void){
    Peak_cnt = Bcd2Dec(Cells_2[9]) * 10 / 6;
    rldl = Rel_Del;
    return;
+}
+
+int IntToStr(int value, char *out){
+   // mikroC's IntToStr emits a 6-wide, space-padded string; mimic that here.
+   sprintf(out, "%6d", value);
+   return 0;
+}
+
+unsigned char Bcd2Dec(unsigned char bcd){
+   return (unsigned char)((bcd >> 4) * 10u + (bcd & 0x0Fu));
+}
+
+static void adc_apply_vref(unsigned char cfg){
+   ADREFbits.ADNREF = 0; // Vss
+   if(cfg & _ADC_INTERNAL_VREFH){
+      ADREFbits.ADPREF = 0; // Vdd
+      FVRCONbits.FVREN = 0;
+      return;
+   }
+   FVRCONbits.FVREN = 1;
+   if(cfg & _ADC_INTERNAL_FVRH2)
+      FVRCONbits.ADFVR = 1; // 2x (2.048V)
+   else
+      FVRCONbits.ADFVR = 0; // 1x (1.024V)
+   while(!FVRCONbits.FVRRDY);
+   ADREFbits.ADPREF = 2; // FVR as positive reference
+}
+
+void ADC_Init(void){
+   ADC_Init_Advanced(_ADC_INTERNAL_VREFL | _ADC_INTERNAL_FVRH1);
+}
+
+void ADC_Init_Advanced(unsigned char cfg){
+   ADCON0bits.ADON = 0;
+   adc_apply_vref(cfg);
+   ADCLK = 3;        // Fosc/8 for TAD
+   ADACQ = 10;       // Acquisition delay
+   ADPCH = 0x3F;     // No channel selected
+   ADCON0bits.ADFM = 1;  // Right-justified
+   ADCON0bits.ADON = 1;
+}
+
+unsigned int ADC_Get_Sample(unsigned char channel){
+   ADPCH = channel;
+   __delay_us(5);
+   ADGO = 1;
+   while(ADGO);
+   return ADRES;
 }
 
 //

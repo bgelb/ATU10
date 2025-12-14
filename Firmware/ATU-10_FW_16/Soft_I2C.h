@@ -1,3 +1,4 @@
+#pragma once
 
 void Soft_I2C_Init(void);
 void Soft_I2C_Start(void);

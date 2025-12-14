@@ -1,24 +1,26 @@
+#pragma once
+
+#include "xc8_compat.h"
+
 // Connections
-//
-#define GetButton     ~ PORTB.B5
-//
-sbit Red            at LATB4_bit;
-sbit Green          at LATB3_bit;
-sbit OLED_PWD       at LATA4_bit;
-sbit C_sw           at LATE0_bit;
-sbit L_010          at LATD7_bit;
-sbit L_022          at LATD6_bit;
-sbit L_045          at LATD5_bit;
-sbit L_100          at LATD4_bit;
-sbit L_220          at LATC7_bit;
-sbit L_450          at LATC6_bit;
-sbit L_1000         at LATC5_bit;
-sbit C_22           at LATA5_bit;
-sbit C_47           at LATE1_bit;
-sbit C_100          at LATA7_bit;
-sbit C_220          at LATA6_bit;
-sbit C_470          at LATC0_bit;
-sbit C_1000         at LATC1_bit;
-sbit C_2200         at LATC2_bit;
-sbit Rel_to_gnd     at LATD3_bit;
-sbit Rel_to_plus_N  at LATC4_bit;
+#define GetButton        (!PORTBbits.RB5)
+#define Red              LATBbits.LATB4
+#define Green            LATBbits.LATB3
+#define OLED_PWD         LATAbits.LATA4
+#define C_sw             LATEbits.LATE0
+#define L_010            LATDbits.LATD7
+#define L_022            LATDbits.LATD6
+#define L_045            LATDbits.LATD5
+#define L_100            LATDbits.LATD4
+#define L_220            LATCbits.LATC7
+#define L_450            LATCbits.LATC6
+#define L_1000           LATCbits.LATC5
+#define C_22             LATAbits.LATA5
+#define C_47             LATEbits.LATE1
+#define C_100            LATAbits.LATA7
+#define C_220            LATAbits.LATA6
+#define C_470            LATCbits.LATC0
+#define C_1000           LATCbits.LATC1
+#define C_2200           LATCbits.LATC2
+#define Rel_to_gnd       LATDbits.LATD3
+#define Rel_to_plus_N    LATCbits.LATC4

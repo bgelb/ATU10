@@ -136,7 +136,8 @@ void oled_wr_str_s(char page, char col, char str[], char len) {  //  128*64 OLED
 
 //
 void oled_wr_str (char page, char col, char str[], char leng ) {  //
-  char i, h, g, w1, w2;
+  char i, h, g;
+  bits8_t w1 = {0}, w2 = {0};
   Soft_I2C_Start();
   Soft_I2C_Write(oled_addr);       // device addres
   Soft_I2C_Write(64);              // 0 - continious mode, command; 64 - Co, data
@@ -146,7 +147,7 @@ void oled_wr_str (char page, char col, char str[], char leng ) {  //
   for (i = 0; i < leng; i++) { // write string
      if (str[i] == 0) g = 0; else g = str[i] - 32; // NULL detection
      for (h = 0; h <= 4; h++) {  // write letter
-      w1 = font_5x8[g*5+h];
+      w1.value = font_5x8[g*5+h];
       if(page != 2) {
       w2.B7 = w1.B3;
       w2.B6 = w1.B3;
@@ -166,8 +167,8 @@ void oled_wr_str (char page, char col, char str[], char leng ) {  //
       w2.B1 = 0;
       w2.B0 = 0;
       }
-      Soft_I2C_Write(w2);
-      Soft_I2C_Write(w2);
+      Soft_I2C_Write((char)w2.value);
+      Soft_I2C_Write((char)w2.value);
       }
      Soft_I2C_Write (0);
      Soft_I2C_Write (0);
@@ -177,7 +178,7 @@ void oled_wr_str (char page, char col, char str[], char leng ) {  //
   for (i = 0; i < leng; i++) { // write string
      if (str[i] == 0) g = 0; else g = str[i] - 32; // NULL detection
      for (h = 0; h <= 4; h++) {  // write letter
-      w1 = font_5x8[g*5+h];
+      w1.value = font_5x8[g*5+h];
       if(page != 2) {
       w2.B7 = w1.B7;
       w2.B6 = w1.B7;
@@ -197,8 +198,8 @@ void oled_wr_str (char page, char col, char str[], char leng ) {  //
       w2.B1 = w1.B3;
       w2.B0 = w1.B3;
       }
-      Soft_I2C_Write(w2);
-      Soft_I2C_Write(w2);
+      Soft_I2C_Write((char)w2.value);
+      Soft_I2C_Write((char)w2.value);
       }
      Soft_I2C_Write (0);
      Soft_I2C_Write (0);
