@@ -1,3 +1,5 @@
+#ifndef ATU10_FONT_5X8_H
+#define ATU10_FONT_5X8_H
  static const unsigned char  font_5x8[] = {
 //
 0x00, 0x00, 0x00, 0x00, 0x00,// (space)
@@ -98,3 +100,5 @@
 0x08, 0x1C, 0x2A, 0x08, 0x08 // <-
 };
 //
+
+#endif // ATU10_FONT_5X8_H

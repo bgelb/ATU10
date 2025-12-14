@@ -1,4 +1,6 @@
-#pragma once
+#ifndef ATU10_OLED_CONTROL_H
+#define ATU10_OLED_CONTROL_H
+
 
 #include "xc8_compat.h"
 #include "font_5x8.h"
@@ -70,3 +72,5 @@ static const char  batt[] = {
  0b11111111,
  0b11111111
  };
+
+#endif // ATU10_OLED_CONTROL_H

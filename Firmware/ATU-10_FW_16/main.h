@@ -1,4 +1,6 @@
-#pragma once
+#ifndef ATU10_MAIN_H
+#define ATU10_MAIN_H
+
 
 #include "pic_init.h"
 
@@ -50,3 +52,5 @@ unsigned int ADC_Get_Sample(unsigned char channel);
 #define Key_in PORTDbits.RD2
 #define Start_out LATDbits.LATD1
 #define Start (!PORTDbits.RD1)
+
+#endif // ATU10_MAIN_H

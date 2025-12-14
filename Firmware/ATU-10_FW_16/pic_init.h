@@ -1,4 +1,6 @@
-#pragma once
+#ifndef ATU10_PIC_INIT_H
+#define ATU10_PIC_INIT_H
+
 
 #include "xc8_compat.h"
 
@@ -24,3 +26,5 @@
 #define C_2200           LATCbits.LATC2
 #define Rel_to_gnd       LATDbits.LATD3
 #define Rel_to_plus_N    LATCbits.LATC4
+
+#endif // ATU10_PIC_INIT_H

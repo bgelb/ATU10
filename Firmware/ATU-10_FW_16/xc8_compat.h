@@ -1,4 +1,6 @@
-#pragma once
+#ifndef ATU10_XC8_COMPAT_H
+#define ATU10_XC8_COMPAT_H
+
 
 #include <xc.h>
 #include <stdint.h>
@@ -39,3 +41,5 @@ typedef union {
 #define B6 bits.b6
 #define B7 bits.b7
 
+
+#endif // ATU10_XC8_COMPAT_H
