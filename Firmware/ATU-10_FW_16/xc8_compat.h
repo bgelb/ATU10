@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Shim layer to mimic mikroC idioms (delays, bitfields) when building under XC8.
 #define _XTAL_FREQ 32000000UL
 
 #define Delay_ms  __delay_ms
