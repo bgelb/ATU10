@@ -1,0 +1,39 @@
+name: XC8 Firmware Build
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl unzip ca-certificates \
+            libc6:i386 libx11-6:i386 libxext6:i386 libstdc++6:i386 libexpat1:i386
+
+      - name: Install XC8 (v3.10)
+        run: |
+          curl -L -o /tmp/xc8.run https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc8-v3.10-full-install-linux-x64-installer.run
+          chmod +x /tmp/xc8.run
+          sudo /tmp/xc8.run --mode unattended --unattendedmodeui none --netservername localhost --prefix /opt/microchip/xc8/v3.10
+
+      - name: Fetch PIC16F1xxxx device pack
+        run: |
+          mkdir -p /home/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431
+          curl -L -o /tmp/PIC16F1xxxx_DFP.atpack https://packs.download.microchip.com/Microchip.PIC16F1xxxx_DFP.1.28.431.atpack
+          unzip -q /tmp/PIC16F1xxxx_DFP.atpack -d /home/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431
+
+      - name: Build firmware 1.6 with XC8
+        working-directory: Firmware/ATU-10_FW_16
+        env:
+          XC8: /opt/microchip/xc8/v3.10/bin/xc8-cc
+          MDFP: /home/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
+        run: |
+          make
