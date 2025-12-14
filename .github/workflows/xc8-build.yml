@@ -23,7 +23,7 @@ jobs:
         uses: usimd/setup-xc-action@v1
         with:
           compiler: xc8
-          version: 3.10
+          version: 3.00
 
       - name: Fetch PIC16F1xxxx device pack
         run: |
