@@ -10,7 +10,7 @@ jobs:
   build:
     # Use a prebuilt XC8 container hosted on GHCR (public).
     container:
-      image: ghcr.io/koendv/xc8:3.00
+      image: ghcr.io/koendv/xc8:latest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
