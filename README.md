@@ -1,10 +1,10 @@
-# ATU-10  - The Tyny QRP Automatic Antenna Tuner
-
-### XC8 build notes for this fork
+# XC8 build notes for this fork
 - Firmware 1.6 now builds with Microchip XC8 (tested v3.10) instead of mikroC. Config bits are set via pragmas in `Firmware/ATU-10_FW_16/main.c`.
 - Prereqs: install XC8 and the PIC16F1xxxx device pack (e.g. `PIC16F1xxxx_DFP 1.28.431`), then adjust `XC8` and `MDFP` paths at the top of `Firmware/ATU-10_FW_16/Makefile` if needed.
 - Build: `cd Firmware/ATU-10_FW_16 && make` (creates `build/ATU-10.hex`).
 - Flashing via USB bootloader: copy `Firmware/ATU-10_FW_16/build/ATU-10.hex` to the ATU-10 USB mass-storage device; the bootloader programs it immediately when the copy completes.
+
+# ATU-10  - The Tyny QRP Automatic Antenna Tuner
 
 
 ### Official conversation group - https://groups.io/g/ATU100
