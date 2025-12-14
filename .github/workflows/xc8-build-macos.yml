@@ -6,7 +6,8 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # Pin to Apple Silicon runner to ensure Rosetta path stays valid.
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
