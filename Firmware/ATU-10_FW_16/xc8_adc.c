@@ -1,4 +1,5 @@
 #include "xc8_adc.h"
+#include "xc8_compat.h" // for _XTAL_FREQ and __delay_us
 
 // Lightweight ADC init/sample routines replacing mikroC's ADC library calls.
 
