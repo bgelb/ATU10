@@ -73,3 +73,10 @@ On the front panel there is a control button, a small 0.91" OLED 128 * 32 displa
    There is also space for two dual-color LEDs with a common anode on the board, they can be installed if you do not need an OLED display.
 The right LED indicates the battery charging process, the left LED indicates the operation. In operating mode, it blinks briefly in color every three seconds, depending on the battery charge level.
 
+
+### XC8 build notes for this fork
+
+- Firmware 1.6 now builds with Microchip XC8 (tested v3.10) instead of mikroC. Config bits are set via pragmas in `Firmware/ATU-10_FW_16/main.c`.
+- Prereqs: install XC8 and the PIC16F1xxxx device pack (e.g. `PIC16F1xxxx_DFP 1.28.431`), then adjust `XC8` and `MDFP` paths at the top of `Firmware/ATU-10_FW_16/Makefile` if needed.
+- Build: `cd Firmware/ATU-10_FW_16 && make` (creates `build/ATU-10.hex`).
+- Flashing via USB bootloader: copy `Firmware/ATU-10_FW_16/build/ATU-10.hex` to the ATU-10 USB mass-storage device; the bootloader programs it immediately when the copy completes.
