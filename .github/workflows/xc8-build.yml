@@ -8,10 +8,9 @@ on:
 
 jobs:
   build:
-    # Public Docker image that bundles XC8; avoids installing the toolchain in CI.
-    # If you maintain your own image, adjust the container/name accordingly.
+    # Public container with XC8 preinstalled.
     container:
-      image: koendv/xc8:3.00
+      image: ghcr.io/koendv/xc8:3.00
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,4 +34,3 @@ jobs:
           MDFP: /root/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
         run: |
           make
-
