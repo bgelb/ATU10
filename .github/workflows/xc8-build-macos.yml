@@ -15,7 +15,16 @@ jobs:
         run: |
           curl -L -o /tmp/xc8.dmg https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc8-v3.10-full-install-macos-x64-installer.dmg
           hdiutil attach /tmp/xc8.dmg -mountpoint /Volumes/xc8
-          sudo /Volumes/xc8/xc8-v3.10.app/Contents/MacOS/installbuilder.sh --mode unattended --unattendedmodeui none --netservername localhost --prefix /Applications/microchip/xc8/v3.10
+          if [ "$(uname -m)" = "arm64" ]; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          installer=$(find /Volumes/xc8 -name installbuilder.sh -print -quit)
+          if [ -z "$installer" ]; then
+            echo "installbuilder.sh not found in mounted XC8 DMG"
+            find /Volumes/xc8 -maxdepth 3 -type f
+            exit 1
+          fi
+          sudo "$installer" --mode unattended --unattendedmodeui none --netservername localhost --prefix /Applications/microchip/xc8/v3.10
           hdiutil detach /Volumes/xc8
 
       - name: Fetch PIC16F1xxxx device pack
@@ -27,7 +36,7 @@ jobs:
       - name: Build firmware 1.6 with XC8
         working-directory: Firmware/ATU-10_FW_16
         env:
-          XC8: /Applications/microchip/xc8/v3.10/bin/xc8-cc
+          XC8: arch -x86_64 /Applications/microchip/xc8/v3.10/bin/xc8-cc
           MDFP: /Users/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
         run: |
           make
