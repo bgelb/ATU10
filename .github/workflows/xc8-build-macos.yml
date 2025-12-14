@@ -6,7 +6,8 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # XC8 macOS installer is x64; use Intel runners to avoid Rosetta dependency.
+    runs-on: macos-13
     steps:
       - name: Checkout
         uses: actions/checkout@v4
