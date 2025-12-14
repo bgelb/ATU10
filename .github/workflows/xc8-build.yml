@@ -2,9 +2,7 @@ name: XC8 Firmware Build
 
 on:
   pull_request:
-    branches: [ main ]
   push:
-    branches: [ main, ci-xc8 ]
 
 jobs:
   build:
