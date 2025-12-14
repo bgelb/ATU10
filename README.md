@@ -1,4 +1,11 @@
+# XC8-compatible fork (FW 1.6)
+This fork adds an XC8-based build of firmware 1.6 (the original used mikroC). Use this if you want to build/flash with Microchip’s free XC8 toolchain.
+- Prereqs: install XC8 (tested v3.10) and the PIC16F1xxxx device pack (e.g. `PIC16F1xxxx_DFP 1.28.431`). Update `XC8` and `MDFP` paths at the top of `Firmware/ATU-10_FW_16/Makefile` if needed.
+- Build: `cd Firmware/ATU-10_FW_16 && make` (outputs `build/ATU-10.hex`).
+- Flash: copy `Firmware/ATU-10_FW_16/build/ATU-10.hex` to the ATU-10 USB mass-storage device; the bootloader programs it when the copy finishes.
+
 # ATU-10  - The Tyny QRP Automatic Antenna Tuner
+
 
 ### Official conversation group - https://groups.io/g/ATU100
 ### Schematic and assembly instruction by VK3PE - http://carnut.info/ATU_N7DDC/ATU-10/ATU-10_by-vk3pe_build_info/ATU-10_vk3pe_V1.2_ALL_INFO_290921.pdf
@@ -72,4 +79,3 @@ On the front panel there is a control button, a small 0.91" OLED 128 * 32 displa
    
    There is also space for two dual-color LEDs with a common anode on the board, they can be installed if you do not need an OLED display.
 The right LED indicates the battery charging process, the left LED indicates the operation. In operating mode, it blinks briefly in color every three seconds, depending on the battery charge level.
-
