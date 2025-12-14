@@ -17,13 +17,14 @@
 
 // global variables
 char txt[8], txt_2[8];
-unsigned long Tick = 0; // ms system tick
+volatile unsigned long Tick = 0; // ms system tick
 int Voltage, Voltage_old = 0;
-char btn_1_cnt = 0, btn_2_cnt = 0;
-unsigned long volt_cnt = 0, watch_cnt = 0, btn_cnt = 0, off_cnt = 10, disp_cnt=10;
+volatile char btn_1_cnt = 0, btn_2_cnt = 0;
+volatile unsigned long volt_cnt = 0, watch_cnt = 0, btn_cnt = 0, off_cnt = 10, disp_cnt=10;
 int PWR, SWR, SWR_ind = 0, SWR_fixed_old = 100, PWR_fixed_old = 9999, rldl;
 char ind = 0, cap = 0, SW = 0;
-bool Overflow = false, B_short = false, B_long = false, B_xlong = false, gre = false, E_short = false, E_long = false;
+bool Overflow = false, gre = false;
+volatile bool B_short = false, B_long = false, B_xlong = false, E_short = false, E_long = false;
 
 // depending on Cells
 unsigned long Disp_time, Off_time;
