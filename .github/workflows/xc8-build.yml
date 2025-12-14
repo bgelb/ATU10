@@ -8,18 +8,20 @@ on:
 
 jobs:
   build:
-    # Public container with XC8 preinstalled.
-    container:
-      image: ghcr.io/koendv/xc8:3.00
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install XC8 toolchain
+        uses: koendv/setup-xc8-compiler@v1
+        with:
+          xc8: '3.00'
+
       - name: Install tools
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends curl unzip ca-certificates
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends curl unzip ca-certificates
 
       - name: Fetch PIC16F1xxxx device pack
         run: |
@@ -30,7 +32,7 @@ jobs:
       - name: Build firmware 1.6 with XC8
         working-directory: Firmware/ATU-10_FW_16
         env:
-          XC8: /opt/microchip/xc8/v3.00/bin/xc8-cc
+          XC8: /usr/local/microchip/xc8/v3.00/bin/xc8-cc
           MDFP: /root/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
         run: |
           make
