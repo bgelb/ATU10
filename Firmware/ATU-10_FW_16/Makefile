@@ -1,5 +1,15 @@
-XC8 ?= /home/bgelb/.local/microchip/xc8/v3.10/bin/xc8-cc
-MDFP ?= /home/bgelb/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
+# XC8 executable selection (priority: XC8_CC, XC8_BIN, then PATH)
+XC8_CC ?=
+XC8_BIN ?=
+XC8 ?= $(if $(XC8_CC),$(XC8_CC),$(if $(XC8_BIN),$(XC8_BIN)/xc8-cc,xc8-cc))
+
+# Pack discovery (priority: MDFP, PACK_ROOT, env vars; otherwise default ~/.mchp_packs)
+PACK_ROOT ?= $(if $(PIC_PACK_ROOT),$(PIC_PACK_ROOT),$(if $(MCHP_PACK_ROOT),$(MCHP_PACK_ROOT),$(HOME)/.mchp_packs/Microchip/PIC16F1xxxx_DFP))
+# Use the latest installed PIC16F1xxxx DFP under PACK_ROOT unless MDFP is provided.
+MDFP ?= $(lastword $(sort $(wildcard $(PACK_ROOT)/*/xc8)))
+ifeq ($(MDFP),)
+$(error No PIC16F1xxxx DFP found. Install one or set MDFP=/path/to/PIC16F1xxxx_DFP/<version>/xc8 or set PACK_ROOT/PIC_PACK_ROOT/MCHP_PACK_ROOT)
+endif
 
 TARGET ?= ATU-10
 OUTDIR ?= build
