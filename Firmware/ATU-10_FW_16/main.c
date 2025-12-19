@@ -2,6 +2,8 @@
 // 2020
 
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include "pic_init.h"
 
 #include "main.h"
@@ -44,6 +46,16 @@ const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13
 #define GIT_HASH "unknown"
 #endif
 
+#ifdef UART_CONSOLE
+#define UART_BAUD_SPBRG 68  // ~115200 baud @32MHz, BRGH=1, BRG16=1
+static void uart_init(void);
+static void uart_putc(char c);
+static void uart_puts(const char *s);
+static void uart_print_num(const char *label, unsigned int v);
+static void uart_console_poll(void);
+static void handle_step(char cmd);
+#endif
+
 
 // interrupt processing
 void __interrupt() isr(void)  {
@@ -75,6 +87,7 @@ void __interrupt() isr(void)  {
          }
          else
             btn_1_cnt = 0;
+#ifndef UART_CONSOLE
          //  External interface
          if(Start){
             if(btn_2_cnt<25) btn_2_cnt++;
@@ -86,6 +99,7 @@ void __interrupt() isr(void)  {
          }
          else
             btn_2_cnt = 0;
+#endif
       }
    }
    return;
@@ -94,9 +108,14 @@ void __interrupt() isr(void)  {
 
 void main() {
    pic_init();
+#ifdef UART_CONSOLE
+   uart_init();
+#endif
    cells_reading();
    Red = 1;
+#ifndef UART_CONSOLE
    Key_out = 1;
+#endif
    gre = 1;
    oled_start();
    //if(Debug) check_reset_flags();
@@ -118,6 +137,9 @@ void main() {
          watch_cnt += 300;
          watch_swr();
       }
+#ifdef UART_CONSOLE
+      uart_console_poll();
+#endif
       //
       if(Disp_time!=0 && disp_cnt==0){  // Display off
          //Disp = 0;
@@ -140,6 +162,7 @@ void main() {
          if(OLED_PWD) Btn_xlong();
          else oled_start();
       }
+#ifndef UART_CONSOLE
       // External interface
       if(E_short){
          if(OLED_PWD==0) oled_start();
@@ -149,6 +172,7 @@ void main() {
          if(OLED_PWD==0) { Ext_long(); oled_start(); }
          else Btn_long();
       }
+#endif
     
   } // while(1)
 } // main
@@ -347,14 +371,18 @@ void Btn_xlong(){
 void Btn_long(){
    Green = 0;
    oled_wr_str(2, 0, "TUNE     ", 9);
+#ifndef UART_CONSOLE
    Key_out = 0;
+#endif
    tune();
    SWR_ind = SWR;
    SWR_fixed_old = SWR;
    oled_wr_str(2, 0, "SWR ", 4);
    oled_wr_str(2, 42, "=", 1);
    draw_swr(SWR_ind);
+#ifndef UART_CONSOLE
    Key_out = 1;
+#endif
    Green = 1;
    B_long = 0;
    E_long = 0;
@@ -364,6 +392,7 @@ void Btn_long(){
    return;
 }
 //
+#ifndef UART_CONSOLE
 void Ext_long(){
    Green = 0;
    OLED_PWD = 1;
@@ -379,6 +408,7 @@ void Ext_long(){
    return;
 }
 //
+#endif
 void Btn_short(){
    Green = 0;
    atu_reset();
@@ -470,6 +500,133 @@ void Relay_set(char L, char C, char I){
    return;
 }
 //
+#ifdef UART_CONSOLE
+static char clamp_byte(int v){
+   if(v<0) v = 0;
+   if(v>127) v = 127;
+   return (char)v;
+}
+
+static void uart_putc(char c){
+   while(!PIR3bits.TXIF);
+   TX1REG = (uint8_t)c;
+}
+
+static void uart_puts(const char *s){
+   while(*s){
+      if(*s=='\n') uart_putc('\r');
+      uart_putc(*s++);
+   }
+}
+
+static void uart_print_num(const char *label, unsigned int v){
+   char buf[12];
+   sprintf(buf, "%u", v);
+   uart_puts(label);
+   uart_puts(buf);
+   uart_puts("\r\n");
+}
+
+static void uart_init(void){
+   ANSELD &= (uint8_t)(~0x06);   // RD1, RD2 digital
+   TRISDbits.TRISD1 = 1;        // RX
+   TRISDbits.TRISD2 = 0;        // TX
+   ODCONDbits.ODCD1 = 0;
+   ODCONDbits.ODCD2 = 0;
+   RD2PPS = 0x25;               // EUSART TX/CK output
+   RXPPS = 0x19;                // RD1 as EUSART RX input
+   BAUD1CONbits.BRG16 = 1;
+   TX1STAbits.BRGH = 1;
+   SP1BRGL = (uint8_t)UART_BAUD_SPBRG;
+   SP1BRGH = (uint8_t)(UART_BAUD_SPBRG >> 8);
+   RC1STAbits.SPEN = 1;
+   RC1STAbits.CREN = 1;
+   TX1STAbits.TXEN = 1;
+   uart_puts("\r\nUART console ready\r\n> ");
+}
+
+static void report_state(void){
+   uart_print_num("IND=", (uint8_t)ind);
+   uart_print_num("CAP=", (uint8_t)cap);
+   uart_print_num("SW=", (uint8_t)SW);
+}
+
+static void handle_step(char cmd){
+   if(cmd=='W') ind = clamp_byte(ind + 1);
+   else if(cmd=='S') ind = clamp_byte(ind - 1);
+   else if(cmd=='D') cap = clamp_byte(cap + 1);
+   else if(cmd=='A') cap = clamp_byte(cap - 1);
+   Relay_set(ind, cap, SW);
+   report_state();
+}
+
+static void uart_process_line(char *line){
+   while(*line==' ') line++;
+   if(*line==0) return;
+   if((line[1]==0) && (line[0]=='W' || line[0]=='A' || line[0]=='S' || line[0]=='D')){
+      handle_step(line[0]);
+      return;
+   }
+   char *arg = line;
+   while(*arg && *arg!=' ' && *arg!='=') arg++;
+   bool has_arg = false;
+   if(*arg){
+      *arg++ = 0;
+      while(*arg==' ' || *arg=='=') arg++;
+      has_arg = (*arg!=0);
+   }
+   if(strcmp(line, "l")==0){
+      if(has_arg){
+         ind = clamp_byte(atoi(arg));
+         Relay_set(ind, cap, SW);
+         report_state();
+      }
+      else uart_print_num("IND=", (uint8_t)ind);
+   }
+   else if(strcmp(line, "c")==0){
+      if(has_arg){
+         cap = clamp_byte(atoi(arg));
+         Relay_set(ind, cap, SW);
+         report_state();
+      }
+      else uart_print_num("CAP=", (uint8_t)cap);
+   }
+   else if(strcmp(line, "sw")==0){
+      if(has_arg){
+         SW = clamp_byte(atoi(arg)) ? 1 : 0;
+         Relay_set(ind, cap, SW);
+         report_state();
+      }
+      else uart_print_num("SW=", (uint8_t)SW);
+   }
+   else if(strcmp(line, "t")==0 || strcmp(line, "tune")==0){
+      Btn_long();
+      uart_puts("TUNE\r\n");
+   }
+   else{
+      uart_puts("ERR\r\n");
+   }
+}
+
+static void uart_console_poll(void){
+   static char buf[32];
+   static uint8_t idx = 0;
+   if(RC1STAbits.OERR){ RC1STAbits.CREN = 0; RC1STAbits.CREN = 1; }
+   while(PIR3bits.RCIF){
+      char c = RC1REG;
+      if(c=='\r') continue;
+      if(c=='\n'){
+         buf[idx] = 0;
+         uart_process_line(buf);
+         idx = 0;
+         uart_puts("> ");
+         continue;
+      }
+      if(idx < sizeof(buf)-1) buf[idx++] = c;
+   }
+}
+#endif
+
 void power_off(void){
    char button_cnt;
    // Disable interrupts

@@ -12,6 +12,7 @@ $(error No PIC16F1xxxx DFP found. Install one or set MDFP=/path/to/PIC16F1xxxx_D
 endif
 
 GIT_HASH ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
+UART_CONSOLE ?= 0
 
 TARGET ?= ATU-10
 OUTDIR ?= build
@@ -21,6 +22,9 @@ SRCS := main.c pic_init.c oled_control.c Soft_I2C.c xc8_compat.c xc8_adc.c
 CFLAGS := -mcpu=16lf18877 -mdfp=$(MDFP) -O1
 CFLAGS += -mwarn=1
 CFLAGS += -DGIT_HASH=\"$(GIT_HASH)\"
+ifeq ($(UART_CONSOLE),1)
+CFLAGS += -DUART_CONSOLE=1
+endif
 
 OBJS := $(SRCS:%.c=$(OUTDIR)/%.o)
 

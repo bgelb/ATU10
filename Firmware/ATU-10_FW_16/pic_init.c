@@ -30,14 +30,24 @@ void pic_init (void) {
   TRISA = 0b00000000;
   TRISB = 0b00100111;
   TRISC = 0b00000000;
+
+#ifdef UART_CONSOLE
+  TRISD = 0b00000010; // RD1 input for UART RX, others outputs
+#else
   TRISD = 0b00000000;
+#endif
   TRISE = 0b00000000;
 
   // open drains
   ODCONAbits.ODCA2 = 1;
   ODCONAbits.ODCA3 = 1;
+#ifdef UART_CONSOLE
+  ODCONDbits.ODCD1 = 0;
+  ODCONDbits.ODCD2 = 0;
+#else
   ODCONDbits.ODCD1 = 1;
   ODCONDbits.ODCD2 = 1;
+#endif
   
   // Timer0 settings
   T0CON1bits.T0CS0 = 0; // Fosc/4
