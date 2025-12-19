@@ -1,41 +1,41 @@
 #include "xc8_adc.h"
 #include "xc8_compat.h" // for _XTAL_FREQ and __delay_us
 
-// Lightweight ADC init/sample routines replacing mikroC's ADC library calls.
-
-static void adc_apply_vref(uint8_t cfg){
-   ADREFbits.ADNREF = 0; // Vss
-   if(cfg & _ADC_INTERNAL_VREFH){
-      ADREFbits.ADPREF = 0; // Vdd
-      FVRCONbits.FVREN = 0;
-      return;
-   }
-   FVRCONbits.FVREN = 1;
-   if(cfg & _ADC_INTERNAL_FVRH2)
-      FVRCONbits.ADFVR = 0b10; // 2x (2.048V)
-   else
-      FVRCONbits.ADFVR = 0b01; // 1x (1.024V)
-   while(!FVRCONbits.FVRRDY);
-   ADREFbits.ADPREF = 2; // FVR as positive reference
-}
+// ADC init/sample routines matching mikroC's __Lib_ADC_18xxx.c behavior for PIC16LF18877.
 
 void ADC_Init(void){
    ADC_Init_Advanced(_ADC_INTERNAL_VREFL | _ADC_INTERNAL_FVRH1);
 }
 
-void ADC_Init_Advanced(uint8_t cfg){
-   ADCON0bits.ADON = 0;
-   adc_apply_vref(cfg);
-   ADCLK = 3;        // Fosc/8 for TAD
-   ADACQ = 10;       // Acquisition delay
-   ADPCH = 0x3F;     // No channel selected
-   ADCON0bits.ADFM = 1;  // Right-justified
+void ADC_Init_Advanced(uint8_t reference){
+   // mikroC clears these registers on each init.
+   ADCON0 = 0;
+   ADCON1 = 0;
+   ADCON2 = 0;
+   ADCON3 = 0;
+
+   // Configure references (ADREF: ADPREF<1:0>, ADNREF).
+   ADREF &= 0xEC;
+   ADREF |= (reference & 0x13);
+
+   // Configure the ADC Fixed Voltage Reference (FVRCON.ADFVR) when requested.
+   if(reference & 0xC0){
+      FVRCON = (uint8_t)((FVRCON & 0xFC) | ((reference & 0xC0) >> 6));
+      FVRCONbits.FVREN = 1;
+      while(!FVRCONbits.FVRRDY);
+   } else {
+      FVRCON &= 0xFC;
+   }
+
+   // mikroC sets ADCS=1 and ADFM0=1 (ADFM=0b01), then enables ADC.
+   ADCON0bits.ADCS = 1;
+   ADCON0bits.ADFM = 1;
    ADCON0bits.ADON = 1;
 }
 
 unsigned int ADC_Get_Sample(uint8_t channel){
-   ADPCH = channel;
-   __delay_us(5);
+   ADPCH = (uint8_t)(channel & 0x3F);
+   __delay_us(22);
    ADGO = 1;
    while(ADGO);
    return ADRES;
