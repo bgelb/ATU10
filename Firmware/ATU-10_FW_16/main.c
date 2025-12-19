@@ -40,6 +40,9 @@ float Cal_a, Cal_b;
 const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13, 0x01, 0x04, 0x14, 0x60};
 
 #define FW_VER "1.6XC"
+#ifndef GIT_HASH
+#define GIT_HASH "unknown"
+#endif
 
 
 // interrupt processing
@@ -398,7 +401,8 @@ void Btn_short(){
 void Greating(){
    Green = 0;
    oled_clear();
-   oled_wr_str_s(1, 0, " DESIGNED BY N7DDC", 18);
+   oled_wr_str_s(1, 0, " COMMIT ", 8);
+   oled_wr_str_s(1, 8*7, GIT_HASH, 7);
    oled_wr_str_s(3, 0, " FW VERSION ", 12);
    oled_wr_str_s(3, 12*7, FW_VER, 5);
    Delay_ms(3000);

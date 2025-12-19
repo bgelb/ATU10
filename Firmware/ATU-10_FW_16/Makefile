@@ -11,6 +11,8 @@ ifeq ($(MDFP),)
 $(error No PIC16F1xxxx DFP found. Install one or set MDFP=/path/to/PIC16F1xxxx_DFP/<version>/xc8 or set PACK_ROOT/PIC_PACK_ROOT/MCHP_PACK_ROOT)
 endif
 
+GIT_HASH ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
+
 TARGET ?= ATU-10
 OUTDIR ?= build
 
@@ -18,6 +20,7 @@ SRCS := main.c pic_init.c oled_control.c Soft_I2C.c xc8_compat.c xc8_adc.c
 
 CFLAGS := -mcpu=16lf18877 -mdfp=$(MDFP) -O1
 CFLAGS += -mwarn=1
+CFLAGS += -DGIT_HASH=\"$(GIT_HASH)\"
 
 OBJS := $(SRCS:%.c=$(OUTDIR)/%.o)
 
