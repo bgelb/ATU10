@@ -400,7 +400,7 @@ void Greating(){
    oled_clear();
    oled_wr_str_s(1, 0, " DESIGNED BY N7DDC", 18);
    oled_wr_str_s(3, 0, " FW VERSION ", 12);
-   oled_wr_str_s(3, 12*7, FW_VER, 3);
+   oled_wr_str_s(3, 12*7, FW_VER, 5);
    Delay_ms(3000);
    while(GetButton) __asm("nop");
    Green = 1;
