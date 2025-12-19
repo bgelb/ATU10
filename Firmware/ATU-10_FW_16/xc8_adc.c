@@ -12,9 +12,9 @@ static void adc_apply_vref(uint8_t cfg){
    }
    FVRCONbits.FVREN = 1;
    if(cfg & _ADC_INTERNAL_FVRH2)
-      FVRCONbits.ADFVR = 1; // 2x (2.048V)
+      FVRCONbits.ADFVR = 0b10; // 2x (2.048V)
    else
-      FVRCONbits.ADFVR = 0; // 1x (1.024V)
+      FVRCONbits.ADFVR = 0b01; // 1x (1.024V)
    while(!FVRCONbits.FVRRDY);
    ADREFbits.ADPREF = 2; // FVR as positive reference
 }
