@@ -556,7 +556,7 @@ static void uart_init(void){
    ODCONDbits.ODCD1 = 0;
    ODCONDbits.ODCD2 = 0;
    pps_unlock();
-   RD2PPS = 0x25;               // EUSART TX/CK output
+   RD2PPS = 0x10;               // TX/CK (EUSART TX) output (Table 13-3)
    RXPPS = 0x19;                // RD1 as EUSART RX input
    pps_lock();
    BAUD1CONbits.BRG16 = 1;
@@ -575,11 +575,11 @@ static void uart_tx_probe(void){
    uint8_t rd2pps_saved = RD2PPS;
    pps_unlock();
    // First use default TX on RD2 (ring)
-   RD2PPS = 0x25;
+   RD2PPS = 0x10;
    TRISDbits.TRISD2 = 0;
    uart_puts("\r\nTX test on RD2 (ring)\r\n");
    // Then temporarily map TX to RD1 (tip)
-   RD1PPS = 0x25;
+   RD1PPS = 0x10;
    TRISDbits.TRISD1 = 0;
    uart_puts("TX test on RD1 (tip)\r\n");
    // Restore RX on RD1 and TX on RD2
