@@ -766,21 +766,25 @@ static void bb_uart_delay_bit(void){
    Delay_us(BB_UART_BIT_US);
 }
 
+static uint8_t bb_uart_invert = 0;
+
 static void bb_uart_putc_dual(uint8_t c){
-   // RD1 sends normal polarity, RD2 sends inverted polarity.
-   // This helps if the EXT jack wiring uses an inverting/open-collector stage.
+   // RD1 only; optionally inverted. RD2 always released.
+   uint8_t start_level = bb_uart_invert ? 1u : 0u;
+   uint8_t stop_level = bb_uart_invert ? 0u : 1u;
    // Start bit
-   bb_uart_set_levels(0, 1);
+   bb_uart_set_levels(start_level, 1);
    bb_uart_delay_bit();
    // Data bits, LSB first
    for(uint8_t i=0; i<8; i++){
       uint8_t bit = (uint8_t)(c & 0x01u);
-      bb_uart_set_levels(bit, (uint8_t)(!bit));
+      uint8_t tx_level = bb_uart_invert ? (uint8_t)(!bit) : bit;
+      bb_uart_set_levels(tx_level, 1);
       bb_uart_delay_bit();
       c >>= 1;
    }
-   // Stop bit (idle high)
-   bb_uart_set_levels(1, 0);
+   // Stop bit (idle level)
+   bb_uart_set_levels(stop_level, 1);
    bb_uart_delay_bit();
 }
 
@@ -807,18 +811,22 @@ static void ext_bitbang_uart_test(void){
    // Keep interrupts off to reduce timing jitter.
    INTCONbits.GIE = 0;
 
-   // Idle state for the two lines:
-   // - RD1 (normal UART): idle high
-   // - RD2 (inverted UART): idle low
-   bb_uart_set_levels(1, 0);
+   // Idle state for RD1 (normal UART): idle high; keep RD2 released.
+   bb_uart_set_levels(1, 1);
    Delay_ms(200);
 
    while(1){
+      uint8_t idle_level = bb_uart_invert ? 0u : 1u;
+      bb_uart_set_levels(idle_level, 1);
+      bb_uart_puts("\r\nINV=");
+      bb_uart_putc_dual(bb_uart_invert ? '1' : '0');
+      bb_uart_puts(" (RD1 only)\r\n");
       bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
       bb_uart_puts("If you see this, RD1/RD2 wiring is correct.\r\n");
       bb_uart_puts("Pattern: ");
       for(uint8_t i=0; i<32; i++) bb_uart_putc_dual('U'); // 0x55 pattern
       bb_uart_puts("\r\n");
+      bb_uart_invert = (uint8_t)(!bb_uart_invert);
       Delay_ms(800);
    }
 }
