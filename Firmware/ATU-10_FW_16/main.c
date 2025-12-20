@@ -54,6 +54,7 @@ static void uart_puts(const char *s);
 static void uart_print_num(const char *label, unsigned int v);
 static void uart_console_poll(void);
 static void handle_step(char cmd);
+static void uart_tx_probe(void);
 #endif
 
 
@@ -110,6 +111,7 @@ void main() {
    pic_init();
 #ifdef UART_CONSOLE
    uart_init();
+   uart_tx_probe();
 #endif
    cells_reading();
    Red = 1;
@@ -543,6 +545,24 @@ static void uart_init(void){
    RC1STAbits.CREN = 1;
    TX1STAbits.TXEN = 1;
    uart_puts("\r\nUART console ready\r\n> ");
+}
+
+// Send test strings out both RD2 and RD1 as TX to help identify cable pinout.
+static void uart_tx_probe(void){
+   uint8_t rd1pps_saved = RD1PPS;
+   uint8_t rd2pps_saved = RD2PPS;
+   // First use default TX on RD2 (ring)
+   RD2PPS = 0x25;
+   TRISDbits.TRISD2 = 0;
+   uart_puts("\r\nTX test on RD2 (ring)\r\n");
+   // Then temporarily map TX to RD1 (tip)
+   RD1PPS = 0x25;
+   TRISDbits.TRISD1 = 0;
+   uart_puts("TX test on RD1 (tip)\r\n");
+   // Restore RX on RD1 and TX on RD2
+   TRISDbits.TRISD1 = 1;
+   RD1PPS = rd1pps_saved;
+   RD2PPS = rd2pps_saved;
 }
 
 static void report_state(void){
