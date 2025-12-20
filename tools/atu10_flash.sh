@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  tools/atu10_flash.sh [--uart|--no-uart] [--volume NAME] [--baud N]
+  tools/atu10_flash.sh [--uart|--no-uart] [--volume NAME] [--baud N] [--remount] [--no-eject]
 
 Builds ATU-10 firmware and copies `Firmware/ATU-10_FW_16/build/ATU-10.hex`
 to the ATU-10 USB mass-storage volume (PIC16F1454 programmer).
@@ -13,6 +13,8 @@ Options:
   --uart, --no-uart   Build with UART_CONSOLE=1 (default: --no-uart)
   --volume NAME       Volume name under /Volumes (default: auto-detect)
   --baud N            (Optional) Print suggested screen command (default: 115200)
+  --remount           Attempt to remount the device after eject (may not work if the programmer disconnects)
+  --no-eject          Do not eject/unmount after copying
 
 Examples:
   tools/atu10_flash.sh --uart --volume ATU10
@@ -23,6 +25,8 @@ EOF
 uart=0
 volume=""
 baud="115200"
+do_eject=1
+do_remount=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -30,6 +34,8 @@ while [[ $# -gt 0 ]]; do
     --no-uart) uart=0; shift ;;
     --volume) volume="${2:-}"; shift 2 ;;
     --baud) baud="${2:-}"; shift 2 ;;
+    --remount) do_remount=1; shift ;;
+    --no-eject) do_eject=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2 ;;
   esac
@@ -97,12 +103,29 @@ if [[ ! -d "$mount_point" ]]; then
   exit 1
 fi
 
+disk_id="$(diskutil info "$mount_point" 2>/dev/null | awk -F': ' '/Device Identifier/ {print $2; exit}')"
+parent_disk="${disk_id%%s*}"
+
 echo "[2/3] Copying $(basename "$hex_path") -> $mount_point …"
 cp -f "$hex_path" "$mount_point/ATU-10.hex"
 sync || true
 
-echo "[3/3] Ejecting $mount_point …"
-diskutil eject "$mount_point" >/dev/null || true
+if [[ "$do_eject" -eq 1 ]]; then
+  echo "[3/3] Ejecting $mount_point …"
+  diskutil eject "$mount_point" >/dev/null || true
+else
+  echo "[3/3] Skipping eject (per --no-eject)"
+fi
+
+if [[ "$do_eject" -eq 1 && "$do_remount" -eq 1 && -n "$parent_disk" ]]; then
+  echo "Attempting remount of /dev/$parent_disk …"
+  for _ in {1..20}; do
+    if diskutil mountDisk "$parent_disk" >/dev/null 2>&1; then
+      break
+    fi
+    sleep 0.5
+  done
+fi
 
 cat <<EOF
 Done.
