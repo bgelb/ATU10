@@ -60,6 +60,11 @@ static void pps_lock(void);
 #endif
 
 
+#ifdef EXT_GPIO_TEST
+static void ext_gpio_test(void);
+#endif
+
+
 // interrupt processing
 void __interrupt() isr(void)  {
    //
@@ -110,21 +115,29 @@ void __interrupt() isr(void)  {
 
 
 void main() {
-   pic_init();
+	   pic_init();
 #ifdef UART_CONSOLE
-   uart_init();
-   uart_tx_probe();
+	   uart_init();
+	   uart_tx_probe();
 #endif
-   cells_reading();
-   Red = 1;
+	   cells_reading();
+	   Red = 1;
 #ifndef UART_CONSOLE
-   Key_out = 1;
+	   Key_out = 1;
 #endif
-   gre = 1;
-   oled_start();
-   //if(Debug) check_reset_flags();
-   ADC_Init();
-   Overflow = 0;
+	   gre = 1;
+	   oled_start();
+#ifdef EXT_GPIO_TEST
+	   oled_clear();
+	   oled_wr_str_s(0, 0, "EXT GPIO", 8);
+	   oled_wr_str_s(1, 0, "RD1 TIP", 7);
+	   oled_wr_str_s(2, 0, "RD2 RING", 8);
+	   oled_wr_str_s(3, 0, "TOGGLING", 8);
+	   ext_gpio_test();
+#endif
+	   //if(Debug) check_reset_flags();
+	   ADC_Init();
+	   Overflow = 0;
    //
    disp_cnt = Disp_time;
    off_cnt = Off_time;
@@ -675,6 +688,52 @@ static void uart_console_poll(void){
          continue;
       }
       if(idx < sizeof(buf)-1) buf[idx++] = c;
+   }
+}
+#endif
+
+#ifdef EXT_GPIO_TEST
+// Minimal wiring/level sanity check: toggle RD1/RD2 as plain GPIO in a repeating pattern.
+// This bypasses PPS/EUSART entirely to prove the EXT jack is actually connected to these pins.
+static void ext_gpio_test(void){
+   // Make sure both pins are digital, push-pull outputs.
+   ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
+   ODCONDbits.ODCD1 = 0;
+   ODCONDbits.ODCD2 = 0;
+   TRISDbits.TRISD1 = 0;
+   TRISDbits.TRISD2 = 0;
+
+   // Start low.
+   LATDbits.LATD1 = 0;
+   LATDbits.LATD2 = 0;
+   Delay_ms(250);
+
+   while(1){
+      // RD1 bursts (tip)
+      for(uint8_t i=0; i<6; i++){
+         LATDbits.LATD1 ^= 1;
+         Delay_ms(120);
+      }
+      LATDbits.LATD1 = 0;
+      Delay_ms(400);
+
+      // RD2 bursts (ring)
+      for(uint8_t i=0; i<6; i++){
+         LATDbits.LATD2 ^= 1;
+         Delay_ms(120);
+      }
+      LATDbits.LATD2 = 0;
+      Delay_ms(400);
+
+      // Both together
+      for(uint8_t i=0; i<6; i++){
+         LATDbits.LATD1 ^= 1;
+         LATDbits.LATD2 ^= 1;
+         Delay_ms(120);
+      }
+      LATDbits.LATD1 = 0;
+      LATDbits.LATD2 = 0;
+      Delay_ms(800);
    }
 }
 #endif
