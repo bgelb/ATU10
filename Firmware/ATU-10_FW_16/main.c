@@ -47,7 +47,7 @@ const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13
 #endif
 
 #ifdef UART_CONSOLE
-#define UART_BAUD_SPBRG 68  // ~115200 baud @32MHz, BRGH=1, BRG16=1
+#define UART_BAUD_SPBRG 832  // ~9600 baud @32MHz, BRGH=1, BRG16=1
 static void uart_init(void);
 static void uart_putc(char c);
 static void uart_puts(const char *s);
@@ -576,15 +576,15 @@ static void uart_print_num(const char *label, unsigned int v){
 static void uart_init(void){
    ANSELD &= (uint8_t)(~0x06);   // RD1, RD2 digital
    // Datasheet note: configure TRIS for RX/DT and TX/CK to '1' and let EUSART drive as needed.
-   TRISDbits.TRISD1 = 1;        // RX (input)
-   TRISDbits.TRISD2 = 1;        // TX (controlled by EUSART via PPS)
+   TRISDbits.TRISD1 = 1;        // TX (controlled by EUSART via PPS)
+   TRISDbits.TRISD2 = 1;        // RX (input)
    ODCONDbits.ODCD1 = 0;
    ODCONDbits.ODCD2 = 0;
    pps_unlock();
-   // Mirror TX on both pins so either tip or ring works without rewiring.
+   // TX on RD1, RX on RD2 (matches observed wiring).
    RD1PPS = 0x10;               // TX/CK (EUSART TX) output (Table 13-3)
-   RD2PPS = 0x10;               // TX/CK (EUSART TX) output (Table 13-3)
-   RXPPS = 0x19;                // RD1 as EUSART RX input
+   RD2PPS = 0x00;               // no PPS output
+   RXPPS = 0x1A;                // RD2 as EUSART RX input
    pps_lock();
    BAUD1CONbits.BRG16 = 1;
    TX1STAbits.BRGH = 1;
@@ -596,24 +596,9 @@ static void uart_init(void){
    uart_puts("\r\nUART console ready\r\n> ");
 }
 
-// Send test strings out both RD2 and RD1 as TX to help identify cable pinout.
+// Send a probe message on the configured TX pin.
 static void uart_tx_probe(void){
-   uint8_t rd1pps_saved = RD1PPS;
-   uint8_t rd2pps_saved = RD2PPS;
-   pps_unlock();
-   // First use default TX on RD2 (ring)
-   RD2PPS = 0x10;
-   TRISDbits.TRISD2 = 1;
-   uart_puts("\r\nTX test on RD2 (ring)\r\n");
-   // Then temporarily map TX to RD1 (tip)
-   RD1PPS = 0x10;
-   TRISDbits.TRISD1 = 1;
-   uart_puts("TX test on RD1 (tip)\r\n");
-   // Restore RX on RD1 and TX on RD2
-   TRISDbits.TRISD1 = 1;
-   RD1PPS = rd1pps_saved;
-   RD2PPS = rd2pps_saved;
-   pps_lock();
+   uart_puts("\r\nTX test on RD1 (push-pull)\r\n");
 }
 
 static void report_state(void){
@@ -751,18 +736,8 @@ static void ext_gpio_test(void){
 
 #ifdef EXT_BITBANG_UART_TEST
 #define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
-// Set to 1 for push-pull drive; 0 for open-drain (external pull-up).
-#ifndef BB_UART_PUSH_PULL
-#define BB_UART_PUSH_PULL 0u
-#endif
 
 static void bb_uart_set_levels(uint8_t rd1_level, uint8_t rd2_level){
-#if BB_UART_PUSH_PULL
-   TRISDbits.TRISD1 = 0;
-   TRISDbits.TRISD2 = 0;
-   LATDbits.LATD1 = rd1_level ? 1 : 0;
-   LATDbits.LATD2 = rd2_level ? 1 : 0;
-#else
    // The VK3PE schematic uses series resistors and a pull-up to battery on the EXT lines,
    // so we drive these pins in an open-drain style: pull low for '0', high-impedance for '1'.
    // Ensure the output latch is low; "high" is achieved by releasing the pin (TRIS=1).
@@ -770,7 +745,6 @@ static void bb_uart_set_levels(uint8_t rd1_level, uint8_t rd2_level){
    LATDbits.LATD2 = 0;
    TRISDbits.TRISD1 = rd1_level ? 1 : 0; // 1=release (high via pull-up), 0=drive low
    TRISDbits.TRISD2 = rd2_level ? 1 : 0;
-#endif
 }
 
 static void bb_uart_delay_bit(void){
@@ -811,18 +785,11 @@ static void bb_uart_puts(const char *s){
 static void ext_bitbang_uart_test(void){
    // Make sure both pins are digital outputs.
    ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
-#if BB_UART_PUSH_PULL
-   ODCONDbits.ODCD1 = 0;
-   ODCONDbits.ODCD2 = 0;
-   TRISDbits.TRISD1 = 0;
-   TRISDbits.TRISD2 = 0;
-#else
    // Match original EXT electrical behavior (open-drain, pulled up externally).
    ODCONDbits.ODCD1 = 1;
    ODCONDbits.ODCD2 = 1;
    TRISDbits.TRISD1 = 1; // released/high
    TRISDbits.TRISD2 = 1; // released/high
-#endif
    LATDbits.LATD1 = 0;
    LATDbits.LATD2 = 0;
 
@@ -839,12 +806,6 @@ static void ext_bitbang_uart_test(void){
       bb_uart_puts("\r\nINV=");
       bb_uart_putc_dual(bb_uart_invert ? '1' : '0');
       bb_uart_puts(" (RD1 only)\r\n");
-      bb_uart_puts("DRV=");
-#if BB_UART_PUSH_PULL
-      bb_uart_puts("PP\r\n");
-#else
-      bb_uart_puts("OD\r\n");
-#endif
       bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
       bb_uart_puts("If you see this, RD1/RD2 wiring is correct.\r\n");
       bb_uart_puts("Pattern: ");
