@@ -55,6 +55,8 @@ static void uart_print_num(const char *label, unsigned int v);
 static void uart_console_poll(void);
 static void handle_step(char cmd);
 static void uart_tx_probe(void);
+static void pps_unlock(void);
+static void pps_lock(void);
 #endif
 
 
@@ -509,6 +511,24 @@ static char clamp_byte(int v){
    return (char)v;
 }
 
+static void pps_unlock(void){
+   uint8_t gie = INTCONbits.GIE;
+   INTCONbits.GIE = 0;
+   PPSLOCK = 0x55;
+   PPSLOCK = 0xAA;
+   PPSLOCKbits.PPSLOCKED = 0;
+   INTCONbits.GIE = gie;
+}
+
+static void pps_lock(void){
+   uint8_t gie = INTCONbits.GIE;
+   INTCONbits.GIE = 0;
+   PPSLOCK = 0x55;
+   PPSLOCK = 0xAA;
+   PPSLOCKbits.PPSLOCKED = 1;
+   INTCONbits.GIE = gie;
+}
+
 static void uart_putc(char c){
    while(!PIR3bits.TXIF);
    TX1REG = (uint8_t)c;
@@ -535,8 +555,10 @@ static void uart_init(void){
    TRISDbits.TRISD2 = 0;        // TX
    ODCONDbits.ODCD1 = 0;
    ODCONDbits.ODCD2 = 0;
+   pps_unlock();
    RD2PPS = 0x25;               // EUSART TX/CK output
    RXPPS = 0x19;                // RD1 as EUSART RX input
+   pps_lock();
    BAUD1CONbits.BRG16 = 1;
    TX1STAbits.BRGH = 1;
    SP1BRGL = (uint8_t)UART_BAUD_SPBRG;
@@ -551,6 +573,7 @@ static void uart_init(void){
 static void uart_tx_probe(void){
    uint8_t rd1pps_saved = RD1PPS;
    uint8_t rd2pps_saved = RD2PPS;
+   pps_unlock();
    // First use default TX on RD2 (ring)
    RD2PPS = 0x25;
    TRISDbits.TRISD2 = 0;
@@ -563,6 +586,7 @@ static void uart_tx_probe(void){
    TRISDbits.TRISD1 = 1;
    RD1PPS = rd1pps_saved;
    RD2PPS = rd2pps_saved;
+   pps_lock();
 }
 
 static void report_state(void){
