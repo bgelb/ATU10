@@ -65,7 +65,10 @@ void pic_init (void) {
   PMD1 = 0b11111110;
   PMD2 = 0b01000111;
   PMD3 = 0b01111111;
-  PMD4 = 0b1110111;
+  PMD4 = 0b01110111;
+#ifdef UART_CONSOLE
+  PMD4bits.UART1MD = 0; // enable EUSART for console
+#endif
   PMD5 = 0b11011111;
   //interrupt setting
   INTCONbits.GIE = 1;
