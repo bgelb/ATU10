@@ -551,8 +551,9 @@ static void uart_print_num(const char *label, unsigned int v){
 
 static void uart_init(void){
    ANSELD &= (uint8_t)(~0x06);   // RD1, RD2 digital
-   TRISDbits.TRISD1 = 1;        // RX
-   TRISDbits.TRISD2 = 0;        // TX
+   // Datasheet note: configure TRIS for RX/DT and TX/CK to '1' and let EUSART drive as needed.
+   TRISDbits.TRISD1 = 1;        // RX (input)
+   TRISDbits.TRISD2 = 1;        // TX (controlled by EUSART via PPS)
    ODCONDbits.ODCD1 = 0;
    ODCONDbits.ODCD2 = 0;
    pps_unlock();
@@ -576,11 +577,11 @@ static void uart_tx_probe(void){
    pps_unlock();
    // First use default TX on RD2 (ring)
    RD2PPS = 0x10;
-   TRISDbits.TRISD2 = 0;
+   TRISDbits.TRISD2 = 1;
    uart_puts("\r\nTX test on RD2 (ring)\r\n");
    // Then temporarily map TX to RD1 (tip)
    RD1PPS = 0x10;
-   TRISDbits.TRISD1 = 0;
+   TRISDbits.TRISD1 = 1;
    uart_puts("TX test on RD1 (tip)\r\n");
    // Restore RX on RD1 and TX on RD2
    TRISDbits.TRISD1 = 1;

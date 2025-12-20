@@ -32,9 +32,9 @@ void pic_init (void) {
   TRISC = 0b00000000;
 
 #ifdef UART_CONSOLE
-  TRISD = 0b00000010; // RD1 input for UART RX, others outputs
+	  TRISD = 0b00000110; // RD1/RD2 input; EUSART drives via PPS (see datasheet note)
 #else
-  TRISD = 0b00000000;
+	  TRISD = 0b00000000;
 #endif
   TRISE = 0b00000000;
 
