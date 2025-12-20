@@ -557,6 +557,8 @@ static void uart_init(void){
    ODCONDbits.ODCD1 = 0;
    ODCONDbits.ODCD2 = 0;
    pps_unlock();
+   // Mirror TX on both pins so either tip or ring works without rewiring.
+   RD1PPS = 0x10;               // TX/CK (EUSART TX) output (Table 13-3)
    RD2PPS = 0x10;               // TX/CK (EUSART TX) output (Table 13-3)
    RXPPS = 0x19;                // RD1 as EUSART RX input
    pps_lock();
@@ -656,6 +658,11 @@ static void uart_process_line(char *line){
 static void uart_console_poll(void){
    static char buf[32];
    static uint8_t idx = 0;
+   static unsigned long last_heartbeat = 0;
+   if((Tick - last_heartbeat) >= 1000){
+      last_heartbeat = Tick;
+      uart_putc('.');
+   }
    if(RC1STAbits.OERR){ RC1STAbits.CREN = 0; RC1STAbits.CREN = 1; }
    while(PIR3bits.RCIF){
       char c = RC1REG;
