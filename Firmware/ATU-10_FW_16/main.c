@@ -752,34 +752,37 @@ static void ext_gpio_test(void){
 #ifdef EXT_BITBANG_UART_TEST
 #define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
 
-static void bb_uart_set(uint8_t level){
-   LATDbits.LATD1 = level ? 1 : 0;
-   LATDbits.LATD2 = level ? 1 : 0;
+static void bb_uart_set_levels(uint8_t rd1_level, uint8_t rd2_level){
+   LATDbits.LATD1 = rd1_level ? 1 : 0;
+   LATDbits.LATD2 = rd2_level ? 1 : 0;
 }
 
 static void bb_uart_delay_bit(void){
    Delay_us(BB_UART_BIT_US);
 }
 
-static void bb_uart_putc(uint8_t c){
+static void bb_uart_putc_dual(uint8_t c){
+   // RD1 sends normal polarity, RD2 sends inverted polarity.
+   // This helps if the EXT jack wiring uses an inverting/open-collector stage.
    // Start bit
-   bb_uart_set(0);
+   bb_uart_set_levels(0, 1);
    bb_uart_delay_bit();
    // Data bits, LSB first
    for(uint8_t i=0; i<8; i++){
-      bb_uart_set(c & 0x01u);
+      uint8_t bit = (uint8_t)(c & 0x01u);
+      bb_uart_set_levels(bit, (uint8_t)(!bit));
       bb_uart_delay_bit();
       c >>= 1;
    }
    // Stop bit (idle high)
-   bb_uart_set(1);
+   bb_uart_set_levels(1, 0);
    bb_uart_delay_bit();
 }
 
 static void bb_uart_puts(const char *s){
    while(*s){
-      if(*s=='\n') bb_uart_putc('\r');
-      bb_uart_putc((uint8_t)*s++);
+      if(*s=='\n') bb_uart_putc_dual('\r');
+      bb_uart_putc_dual((uint8_t)*s++);
    }
 }
 
@@ -796,15 +799,17 @@ static void ext_bitbang_uart_test(void){
    // Keep interrupts off to reduce timing jitter.
    INTCONbits.GIE = 0;
 
-   // Idle high
-   bb_uart_set(1);
+   // Idle state for the two lines:
+   // - RD1 (normal UART): idle high
+   // - RD2 (inverted UART): idle low
+   bb_uart_set_levels(1, 0);
    Delay_ms(200);
 
    while(1){
       bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
       bb_uart_puts("If you see this, RD1/RD2 wiring is correct.\r\n");
       bb_uart_puts("Pattern: ");
-      for(uint8_t i=0; i<32; i++) bb_uart_putc('U'); // 0x55 pattern
+      for(uint8_t i=0; i<32; i++) bb_uart_putc_dual('U'); // 0x55 pattern
       bb_uart_puts("\r\n");
       Delay_ms(800);
    }
