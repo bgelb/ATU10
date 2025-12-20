@@ -14,6 +14,7 @@ endif
 GIT_HASH ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 UART_CONSOLE ?= 0
 EXT_GPIO_TEST ?= 0
+EXT_BITBANG_UART_TEST ?= 0
 
 TARGET ?= ATU-10
 OUTDIR ?= build
@@ -29,6 +30,10 @@ endif
 
 ifeq ($(EXT_GPIO_TEST),1)
 CFLAGS += -DEXT_GPIO_TEST=1
+endif
+
+ifeq ($(EXT_BITBANG_UART_TEST),1)
+CFLAGS += -DEXT_BITBANG_UART_TEST=1
 endif
 
 OBJS := $(SRCS:%.c=$(OUTDIR)/%.o)

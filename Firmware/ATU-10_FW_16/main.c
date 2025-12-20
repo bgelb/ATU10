@@ -64,6 +64,10 @@ static void pps_lock(void);
 static void ext_gpio_test(void);
 #endif
 
+#ifdef EXT_BITBANG_UART_TEST
+static void ext_bitbang_uart_test(void);
+#endif
+
 
 // interrupt processing
 void __interrupt() isr(void)  {
@@ -127,7 +131,14 @@ void main() {
 #endif
 	   gre = 1;
 	   oled_start();
-#ifdef EXT_GPIO_TEST
+#ifdef EXT_BITBANG_UART_TEST
+	   oled_clear();
+	   oled_wr_str_s(0, 0, "EXT UART", 8);
+	   oled_wr_str_s(1, 0, "BITBANG", 7);
+	   oled_wr_str_s(2, 0, "9600 8N1", 9);
+	   oled_wr_str_s(3, 0, "RD1+RD2", 7);
+	   ext_bitbang_uart_test();
+#elif defined(EXT_GPIO_TEST)
 	   oled_clear();
 	   oled_wr_str_s(0, 0, "EXT GPIO", 8);
 	   oled_wr_str_s(1, 0, "RD1 TIP", 7);
@@ -733,6 +744,68 @@ static void ext_gpio_test(void){
       }
       LATDbits.LATD1 = 0;
       LATDbits.LATD2 = 0;
+      Delay_ms(800);
+   }
+}
+#endif
+
+#ifdef EXT_BITBANG_UART_TEST
+#define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
+
+static void bb_uart_set(uint8_t level){
+   LATDbits.LATD1 = level ? 1 : 0;
+   LATDbits.LATD2 = level ? 1 : 0;
+}
+
+static void bb_uart_delay_bit(void){
+   Delay_us(BB_UART_BIT_US);
+}
+
+static void bb_uart_putc(uint8_t c){
+   // Start bit
+   bb_uart_set(0);
+   bb_uart_delay_bit();
+   // Data bits, LSB first
+   for(uint8_t i=0; i<8; i++){
+      bb_uart_set(c & 0x01u);
+      bb_uart_delay_bit();
+      c >>= 1;
+   }
+   // Stop bit (idle high)
+   bb_uart_set(1);
+   bb_uart_delay_bit();
+}
+
+static void bb_uart_puts(const char *s){
+   while(*s){
+      if(*s=='\n') bb_uart_putc('\r');
+      bb_uart_putc((uint8_t)*s++);
+   }
+}
+
+// Bit-banged TX on BOTH RD1 and RD2 simultaneously.
+// This is meant to show readable output on your terminal at 9600 baud even if PPS/EUSART is broken.
+static void ext_bitbang_uart_test(void){
+   // Make sure both pins are digital, push-pull outputs.
+   ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
+   ODCONDbits.ODCD1 = 0;
+   ODCONDbits.ODCD2 = 0;
+   TRISDbits.TRISD1 = 0;
+   TRISDbits.TRISD2 = 0;
+
+   // Keep interrupts off to reduce timing jitter.
+   INTCONbits.GIE = 0;
+
+   // Idle high
+   bb_uart_set(1);
+   Delay_ms(200);
+
+   while(1){
+      bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
+      bb_uart_puts("If you see this, RD1/RD2 wiring is correct.\r\n");
+      bb_uart_puts("Pattern: ");
+      for(uint8_t i=0; i<32; i++) bb_uart_putc('U'); // 0x55 pattern
+      bb_uart_puts("\r\n");
       Delay_ms(800);
    }
 }

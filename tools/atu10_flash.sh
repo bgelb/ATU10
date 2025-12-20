@@ -4,13 +4,15 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  tools/atu10_flash.sh [--uart|--no-uart] [--volume NAME] [--baud N] [--remount] [--no-eject]
+  tools/atu10_flash.sh [--uart|--no-uart] [--gpio-test|--bitbang-test] [--volume NAME] [--baud N] [--remount] [--no-eject]
 
 Builds ATU-10 firmware and copies `Firmware/ATU-10_FW_16/build/ATU-10.hex`
 to the ATU-10 USB mass-storage volume (PIC16F1454 programmer).
 
 Options:
   --uart, --no-uart   Build with UART_CONSOLE=1 (default: --no-uart)
+  --gpio-test         Build with EXT_GPIO_TEST=1 (toggles RD1/RD2; no UART)
+  --bitbang-test      Build with EXT_BITBANG_UART_TEST=1 (bit-banged 9600 8N1 on RD1/RD2)
   --volume NAME       Volume name under /Volumes (default: auto-detect)
   --baud N            (Optional) Print suggested screen command (default: 115200)
   --remount           Attempt to remount the device after eject (may not work if the programmer disconnects)
@@ -27,11 +29,15 @@ volume=""
 baud="115200"
 do_eject=1
 do_remount=0
+ext_gpio_test=0
+ext_bitbang_test=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --uart) uart=1; shift ;;
     --no-uart) uart=0; shift ;;
+    --gpio-test) ext_gpio_test=1; ext_bitbang_test=0; shift ;;
+    --bitbang-test) ext_bitbang_test=1; ext_gpio_test=0; shift ;;
     --volume) volume="${2:-}"; shift 2 ;;
     --baud) baud="${2:-}"; shift 2 ;;
     --remount) do_remount=1; shift ;;
@@ -48,11 +54,17 @@ hex_path="$fw_dir/build/ATU-10.hex"
 echo "[1/3] Building firmware (UART_CONSOLE=$uart)…"
 pushd "$fw_dir" >/dev/null
 make clean
+make_args=()
 if [[ "$uart" -eq 1 ]]; then
-  make UART_CONSOLE=1
-else
-  make
+  make_args+=(UART_CONSOLE=1)
 fi
+if [[ "$ext_gpio_test" -eq 1 ]]; then
+  make_args+=(EXT_GPIO_TEST=1)
+fi
+if [[ "$ext_bitbang_test" -eq 1 ]]; then
+  make_args+=(EXT_BITBANG_UART_TEST=1)
+fi
+make "${make_args[@]}"
 popd >/dev/null
 
 if [[ ! -f "$hex_path" ]]; then
