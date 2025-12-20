@@ -752,7 +752,9 @@ static void ext_gpio_test(void){
 #ifdef EXT_BITBANG_UART_TEST
 #define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
 // Set to 1 for push-pull drive; 0 for open-drain (external pull-up).
-#define BB_UART_PUSH_PULL 1u
+#ifndef BB_UART_PUSH_PULL
+#define BB_UART_PUSH_PULL 0u
+#endif
 
 static void bb_uart_set_levels(uint8_t rd1_level, uint8_t rd2_level){
 #if BB_UART_PUSH_PULL
