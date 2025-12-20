@@ -34,27 +34,17 @@ float sqrt_n(float);
 void oled_start(void);
 void power_off(void);
 void Greating(void);
-void cells_reading(void);
-#ifndef UART_CONSOLE
 void Ext_long(void);
-#endif
+void cells_reading(void);
 
 #define ON 1
 #define OFF 0
 #define Battery_input 9
 #define FWD_input 8
 #define REV_input 10
-
-#ifdef UART_CONSOLE
-#define Key_out LATDbits.LATD2  // UART TX pin; keep symbol for compatibility
-#define Key_in 0
-#define Start_out LATDbits.LATD1
-#define Start 0
-#else
 #define Key_out LATDbits.LATD2
 #define Key_in PORTDbits.RD2
 #define Start_out LATDbits.LATD1
 #define Start (!PORTDbits.RD1)
-#endif
 
 #endif // ATU10_MAIN_H

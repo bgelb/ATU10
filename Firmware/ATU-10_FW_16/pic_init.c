@@ -30,24 +30,14 @@ void pic_init (void) {
   TRISA = 0b00000000;
   TRISB = 0b00100111;
   TRISC = 0b00000000;
-
-#ifdef UART_CONSOLE
-	  TRISD = 0b00000110; // RD1/RD2 input; EUSART drives via PPS (see datasheet note)
-#else
-	  TRISD = 0b00000000;
-#endif
+  TRISD = 0b00000000;
   TRISE = 0b00000000;
 
   // open drains
   ODCONAbits.ODCA2 = 1;
   ODCONAbits.ODCA3 = 1;
-#ifdef UART_CONSOLE
-  ODCONDbits.ODCD1 = 0;
-  ODCONDbits.ODCD2 = 0;
-#else
   ODCONDbits.ODCD1 = 1;
   ODCONDbits.ODCD2 = 1;
-#endif
   
   // Timer0 settings
   T0CON1bits.T0CS0 = 0; // Fosc/4
@@ -65,10 +55,7 @@ void pic_init (void) {
   PMD1 = 0b11111110;
   PMD2 = 0b01000111;
   PMD3 = 0b01111111;
-  PMD4 = 0b01110111;
-#ifdef UART_CONSOLE
-  PMD4bits.UART1MD = 0; // enable EUSART for console
-#endif
+  PMD4 = 0b1110111;
   PMD5 = 0b11011111;
   //interrupt setting
   INTCONbits.GIE = 1;

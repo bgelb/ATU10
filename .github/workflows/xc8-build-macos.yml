@@ -34,19 +34,10 @@ jobs:
           curl -L -o /tmp/PIC16F1xxxx_DFP.atpack https://packs.download.microchip.com/Microchip.PIC16F1xxxx_DFP.1.28.431.atpack
           unzip -q /tmp/PIC16F1xxxx_DFP.atpack -d /Users/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431
 
-      - name: Build firmware 1.6 with XC8 (default)
+      - name: Build firmware 1.6 with XC8
         working-directory: Firmware/ATU-10_FW_16
         env:
           XC8: arch -x86_64 /Applications/microchip/xc8/v3.10/bin/xc8-cc
           MDFP: /Users/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
         run: |
           make
-
-      - name: Build firmware 1.6 with XC8 (UART_CONSOLE=1)
-        working-directory: Firmware/ATU-10_FW_16
-        env:
-          XC8: arch -x86_64 /Applications/microchip/xc8/v3.10/bin/xc8-cc
-          MDFP: /Users/runner/.mchp_packs/Microchip/PIC16F1xxxx_DFP/1.28.431/xc8
-        run: |
-          make clean
-          make UART_CONSOLE=1
