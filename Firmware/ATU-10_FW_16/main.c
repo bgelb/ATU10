@@ -751,15 +751,24 @@ static void ext_gpio_test(void){
 
 #ifdef EXT_BITBANG_UART_TEST
 #define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
+// Set to 1 for push-pull drive; 0 for open-drain (external pull-up).
+#define BB_UART_PUSH_PULL 1u
 
-// The VK3PE schematic uses series resistors and a pull-up to battery on the EXT lines,
-// so we drive these pins in an open-drain style: pull low for '0', high-impedance for '1'.
 static void bb_uart_set_levels(uint8_t rd1_level, uint8_t rd2_level){
+#if BB_UART_PUSH_PULL
+   TRISDbits.TRISD1 = 0;
+   TRISDbits.TRISD2 = 0;
+   LATDbits.LATD1 = rd1_level ? 1 : 0;
+   LATDbits.LATD2 = rd2_level ? 1 : 0;
+#else
+   // The VK3PE schematic uses series resistors and a pull-up to battery on the EXT lines,
+   // so we drive these pins in an open-drain style: pull low for '0', high-impedance for '1'.
    // Ensure the output latch is low; "high" is achieved by releasing the pin (TRIS=1).
    LATDbits.LATD1 = 0;
    LATDbits.LATD2 = 0;
    TRISDbits.TRISD1 = rd1_level ? 1 : 0; // 1=release (high via pull-up), 0=drive low
    TRISDbits.TRISD2 = rd2_level ? 1 : 0;
+#endif
 }
 
 static void bb_uart_delay_bit(void){
@@ -798,15 +807,22 @@ static void bb_uart_puts(const char *s){
 // Bit-banged TX on BOTH RD1 and RD2 simultaneously.
 // This is meant to show readable output on your terminal at 9600 baud even if PPS/EUSART is broken.
 static void ext_bitbang_uart_test(void){
-   // Make sure both pins are digital, push-pull outputs.
+   // Make sure both pins are digital outputs.
    ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
+#if BB_UART_PUSH_PULL
+   ODCONDbits.ODCD1 = 0;
+   ODCONDbits.ODCD2 = 0;
+   TRISDbits.TRISD1 = 0;
+   TRISDbits.TRISD2 = 0;
+#else
    // Match original EXT electrical behavior (open-drain, pulled up externally).
    ODCONDbits.ODCD1 = 1;
    ODCONDbits.ODCD2 = 1;
-   LATDbits.LATD1 = 0;
-   LATDbits.LATD2 = 0;
    TRISDbits.TRISD1 = 1; // released/high
    TRISDbits.TRISD2 = 1; // released/high
+#endif
+   LATDbits.LATD1 = 0;
+   LATDbits.LATD2 = 0;
 
    // Keep interrupts off to reduce timing jitter.
    INTCONbits.GIE = 0;
@@ -821,6 +837,12 @@ static void ext_bitbang_uart_test(void){
       bb_uart_puts("\r\nINV=");
       bb_uart_putc_dual(bb_uart_invert ? '1' : '0');
       bb_uart_puts(" (RD1 only)\r\n");
+      bb_uart_puts("DRV=");
+#if BB_UART_PUSH_PULL
+      bb_uart_puts("PP\r\n");
+#else
+      bb_uart_puts("OD\r\n");
+#endif
       bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
       bb_uart_puts("If you see this, RD1/RD2 wiring is correct.\r\n");
       bb_uart_puts("Pattern: ");
