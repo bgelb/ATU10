@@ -107,7 +107,7 @@ void main() {
    oled_clear();
    oled_wr_str_s(0, 0, "EXT UART", 8);
    oled_wr_str_s(1, 0, "BITBANG", 7);
-   oled_wr_str_s(2, 0, "9600 8N1", 9);
+   oled_wr_str_s(2, 0, "1200 8N1", 9);
    oled_wr_str_s(3, 0, "RD1 ONLY", 8);
    ext_bitbang_uart_test();
 #endif
@@ -483,41 +483,37 @@ void Relay_set(char L, char C, char I){
 }
 //
 #ifdef EXT_BITBANG_UART_TEST
-#define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
+#define BB_UART_BIT_US 833u  // ~1200 baud (1/1200 = 833.33us)
 
-static void bb_uart_set_levels(uint8_t rd1_level, uint8_t rd2_level){
+static void bb_uart_set_levels(uint8_t rd1_level){
    // The VK3PE schematic uses series resistors and a pull-up to battery on the EXT lines,
    // so we drive these pins in an open-drain style: pull low for '0', high-impedance for '1'.
    // Ensure the output latch is low; "high" is achieved by releasing the pin (TRIS=1).
    LATDbits.LATD1 = 0;
-   LATDbits.LATD2 = 0;
+   //LATDbits.LATD2 = 0;
    TRISDbits.TRISD1 = rd1_level ? 1 : 0; // 1=release (high via pull-up), 0=drive low
-   TRISDbits.TRISD2 = rd2_level ? 1 : 0;
+   //TRISDbits.TRISD2 = rd2_level ? 1 : 0;
 }
 
 static void bb_uart_delay_bit(void){
    Delay_us(BB_UART_BIT_US);
 }
 
-static uint8_t bb_uart_invert = 0;
-
 static void bb_uart_putc_dual(uint8_t c){
-   // RD1 only; optionally inverted. RD2 always released.
-   uint8_t start_level = bb_uart_invert ? 1u : 0u;
-   uint8_t stop_level = bb_uart_invert ? 0u : 1u;
+   uint8_t start_level = 0u;
+   uint8_t stop_level =  1u;
    // Start bit
-   bb_uart_set_levels(start_level, 1);
+   bb_uart_set_levels(start_level);
    bb_uart_delay_bit();
    // Data bits, LSB first
    for(uint8_t i=0; i<8; i++){
       uint8_t bit = (uint8_t)(c & 0x01u);
-      uint8_t tx_level = bb_uart_invert ? (uint8_t)(!bit) : bit;
-      bb_uart_set_levels(tx_level, 1);
+      bb_uart_set_levels(bit);
       bb_uart_delay_bit();
       c >>= 1;
    }
    // Stop bit (idle level)
-   bb_uart_set_levels(stop_level, 1);
+   bb_uart_set_levels(stop_level);
    bb_uart_delay_bit();
 }
 
@@ -534,31 +530,23 @@ static void ext_bitbang_uart_test(void){
    ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
    // Match original EXT electrical behavior (open-drain, pulled up externally).
    ODCONDbits.ODCD1 = 1;
-   ODCONDbits.ODCD2 = 1;
+   //ODCONDbits.ODCD2 = 1;
    TRISDbits.TRISD1 = 1; // released/high
-   TRISDbits.TRISD2 = 1; // released/high
+   //TRISDbits.TRISD2 = 1; // released/high
    LATDbits.LATD1 = 0;
-   LATDbits.LATD2 = 0;
+   //LATDbits.LATD2 = 0;
 
    // Keep interrupts off to reduce timing jitter.
    INTCONbits.GIE = 0;
 
    // Idle state for RD1 (normal UART): idle high; keep RD2 released.
-   bb_uart_set_levels(1, 1);
-   Delay_ms(200);
+   bb_uart_set_levels(1u);
 
    while(1){
-      uint8_t idle_level = bb_uart_invert ? 0u : 1u;
-      bb_uart_set_levels(idle_level, 1);
-      bb_uart_puts("\r\nINV=");
-      bb_uart_putc_dual(bb_uart_invert ? '1' : '0');
-      bb_uart_puts(" (RD1 only)\r\n");
-      bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
-      bb_uart_puts("If you see this, RD1 wiring is correct.\r\n");
+      bb_uart_puts("\r\nBITBANG UART 1200 OK\r\n");
       bb_uart_puts("Pattern: ");
       for(uint8_t i=0; i<32; i++) bb_uart_putc_dual('U'); // 0x55 pattern
       bb_uart_puts("\r\n");
-      bb_uart_invert = (uint8_t)(!bb_uart_invert);
       Delay_ms(800);
    }
 }
