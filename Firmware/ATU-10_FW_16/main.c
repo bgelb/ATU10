@@ -107,7 +107,7 @@ void main() {
    oled_clear();
    oled_wr_str_s(0, 0, "EXT UART", 8);
    oled_wr_str_s(1, 0, "BITBANG", 7);
-   oled_wr_str_s(2, 0, "1200 8N1", 9);
+   oled_wr_str_s(2, 0, "9600 8N1", 9);
    oled_wr_str_s(3, 0, "RD1 ONLY", 8);
    ext_bitbang_uart_test();
 #endif
@@ -483,19 +483,9 @@ void Relay_set(char L, char C, char I){
 }
 //
 #ifdef EXT_BITBANG_UART_TEST
-#define BB_UART_BIT_US 833u  // ~1200 baud (1/1200 = 833.33us)
+#define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
 
 static void bb_uart_set_levels(uint8_t rd1_level){
-   // The VK3PE schematic uses series resistors and a pull-up to battery on the EXT lines,
-   // so we drive these pins in an open-drain style: pull low for '0', high-impedance for '1'.
-   // Ensure the output latch is low; "high" is achieved by releasing the pin (TRIS=1).
-
-   // works
-   //LATDbits.LATD1 = 0;
-   //TRISDbits.TRISD1 = rd1_level ? 1 : 0; // 1=release (high via pull-up), 0=drive low
-
-   // doesn't work
-   TRISDbits.TRISD1 = 0;
    LATDbits.LATD1 = rd1_level ? 1 : 0;
 }
 
@@ -531,8 +521,8 @@ static void bb_uart_puts(const char *s){
 // Bit-banged TX on RD1 (open-drain) for EXT UART wiring checks.
 static void ext_bitbang_uart_test(void){
    // Ensure EUSART and PPS outputs are not driving RD1.
-   TX1STAbits.TXEN = 0;
-   RC1STAbits.SPEN = 0;
+   //TX1STAbits.TXEN = 0;
+   //RC1STAbits.SPEN = 0;
    PPSLOCK = 0x55;
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 0;
@@ -544,22 +534,18 @@ static void ext_bitbang_uart_test(void){
 
    // Make sure both pins are digital outputs.
    ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
-   // Match original EXT electrical behavior (open-drain, pulled up externally).
+   // Drive high and low (not open drain).
    ODCONDbits.ODCD1 = 0;
-   //ODCONDbits.ODCD2 = 1;
-   TRISDbits.TRISD1 = 0; // released/high
-   //TRISDbits.TRISD2 = 1; // released/high
+   // Set as output.
+   TRISDbits.TRISD1 = 0;
+   // Set to high (idle).
    LATDbits.LATD1 = 1;
-   //LATDbits.LATD2 = 0;
 
    // Keep interrupts off to reduce timing jitter.
    INTCONbits.GIE = 0;
 
-   // Idle state for RD1 (normal UART): idle high; keep RD2 released.
-   bb_uart_set_levels(1u);
-
    while(1){
-      bb_uart_puts("\r\nBITBANG UART 1200 OK\r\n");
+      bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
       bb_uart_puts("Pattern: ");
       for(uint8_t i=0; i<32; i++) bb_uart_putc_dual('U'); // 0x55 pattern
       bb_uart_puts("\r\n");
