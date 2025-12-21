@@ -489,10 +489,14 @@ static void bb_uart_set_levels(uint8_t rd1_level){
    // The VK3PE schematic uses series resistors and a pull-up to battery on the EXT lines,
    // so we drive these pins in an open-drain style: pull low for '0', high-impedance for '1'.
    // Ensure the output latch is low; "high" is achieved by releasing the pin (TRIS=1).
-   LATDbits.LATD1 = 0;
-   //LATDbits.LATD2 = 0;
-   TRISDbits.TRISD1 = rd1_level ? 1 : 0; // 1=release (high via pull-up), 0=drive low
-   //TRISDbits.TRISD2 = rd2_level ? 1 : 0;
+
+   // works
+   //LATDbits.LATD1 = 0;
+   //TRISDbits.TRISD1 = rd1_level ? 1 : 0; // 1=release (high via pull-up), 0=drive low
+
+   // doesn't work
+   TRISDbits.TRISD1 = 0;
+   LATDbits.LATD1 = rd1_level ? 1 : 0;
 }
 
 static void bb_uart_delay_bit(void){
@@ -526,14 +530,26 @@ static void bb_uart_puts(const char *s){
 
 // Bit-banged TX on RD1 (open-drain) for EXT UART wiring checks.
 static void ext_bitbang_uart_test(void){
+   // Ensure EUSART and PPS outputs are not driving RD1.
+   TX1STAbits.TXEN = 0;
+   RC1STAbits.SPEN = 0;
+   PPSLOCK = 0x55;
+   PPSLOCK = 0xAA;
+   PPSLOCKbits.PPSLOCKED = 0;
+   RD1PPS = 0x00; // LATD drives RD1 when PPS output is disabled.
+   RD2PPS = 0x00;
+   PPSLOCK = 0x55;
+   PPSLOCK = 0xAA;
+   PPSLOCKbits.PPSLOCKED = 1;
+
    // Make sure both pins are digital outputs.
    ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
    // Match original EXT electrical behavior (open-drain, pulled up externally).
-   ODCONDbits.ODCD1 = 1;
+   ODCONDbits.ODCD1 = 0;
    //ODCONDbits.ODCD2 = 1;
-   TRISDbits.TRISD1 = 1; // released/high
+   TRISDbits.TRISD1 = 0; // released/high
    //TRISDbits.TRISD2 = 1; // released/high
-   LATDbits.LATD1 = 0;
+   LATDbits.LATD1 = 1;
    //LATDbits.LATD2 = 0;
 
    // Keep interrupts off to reduce timing jitter.
