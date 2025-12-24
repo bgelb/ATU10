@@ -114,6 +114,8 @@ void bb_uart_tx_init(void){
    bb_uart_tx_shift = 0u;
    bb_uart_subtick = 0u;
    bb_uart_irq_restore(gie);
+   ODCONDbits.ODCD1 = 0;
+   TRISDbits.TRISD1 = 0;
    bb_uart_set_levels(1u);
    bb_uart_tx_ready = 1u;
    INTCONbits.PEIE = 1;

@@ -503,15 +503,6 @@ static void ext_bitbang_uart_test(void){
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 1;
 
-   // Make sure both pins are digital outputs.
-   ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
-   // Drive high and low (not open drain).
-   ODCONDbits.ODCD1 = 0;
-   // Set as output.
-   TRISDbits.TRISD1 = 0;
-   // Set to high (idle).
-   LATDbits.LATD1 = 1;
-
    bb_uart_tx_init();
 
    while(1){
