@@ -5,6 +5,7 @@
 #include "pic_init.h"
 
 #include "main.h"
+#include "bb_uart.h"
 #include "oled_control.h"
 
 #include "Soft_I2C.h"
@@ -59,7 +60,6 @@ void __interrupt() isr(void)  {
       if(off_cnt!=0) off_cnt--;
       TMR0L = 0xC0;   // 8_000 cycles to OF
       TMR0H = 0xE0;
-      //
       if(Tick>=btn_cnt){  // every 10ms
          btn_cnt += 10;
          //
@@ -92,6 +92,12 @@ void __interrupt() isr(void)  {
             btn_2_cnt = 0;
       }
    }
+#ifdef EXT_BITBANG_UART_TEST
+   if(PIR4bits.TMR2IF) {
+      PIR4bits.TMR2IF = 0;
+      bb_uart_tx_isr_tick();
+   }
+#endif
    return;
 }
 
@@ -483,41 +489,6 @@ void Relay_set(char L, char C, char I){
 }
 //
 #ifdef EXT_BITBANG_UART_TEST
-#define BB_UART_BIT_US 104u  // ~9600 baud (1/9600 = 104.17us)
-
-static void bb_uart_set_levels(uint8_t rd1_level){
-   LATDbits.LATD1 = rd1_level ? 1 : 0;
-}
-
-static void bb_uart_delay_bit(void){
-   Delay_us(BB_UART_BIT_US);
-}
-
-static void bb_uart_putc_dual(uint8_t c){
-   uint8_t start_level = 0u;
-   uint8_t stop_level =  1u;
-   // Start bit
-   bb_uart_set_levels(start_level);
-   bb_uart_delay_bit();
-   // Data bits, LSB first
-   for(uint8_t i=0; i<8; i++){
-      uint8_t bit = (uint8_t)(c & 0x01u);
-      bb_uart_set_levels(bit);
-      bb_uart_delay_bit();
-      c >>= 1;
-   }
-   // Stop bit (idle level)
-   bb_uart_set_levels(stop_level);
-   bb_uart_delay_bit();
-}
-
-static void bb_uart_puts(const char *s){
-   while(*s){
-      if(*s=='\n') bb_uart_putc_dual('\r');
-      bb_uart_putc_dual((uint8_t)*s++);
-   }
-}
-
 // Bit-banged TX on RD1 (open-drain) for EXT UART wiring checks.
 static void ext_bitbang_uart_test(void){
    // Ensure EUSART and PPS outputs are not driving RD1.
@@ -532,23 +503,16 @@ static void ext_bitbang_uart_test(void){
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 1;
 
-   // Make sure both pins are digital outputs.
-   ANSELD &= (uint8_t)(~0x06); // RD1, RD2 digital
-   // Drive high and low (not open drain).
-   ODCONDbits.ODCD1 = 0;
-   // Set as output.
-   TRISDbits.TRISD1 = 0;
-   // Set to high (idle).
-   LATDbits.LATD1 = 1;
-
-   // Keep interrupts off to reduce timing jitter.
-   INTCONbits.GIE = 0;
+   bb_uart_tx_init();
 
    while(1){
-      bb_uart_puts("\r\nBITBANG UART 9600 OK\r\n");
-      bb_uart_puts("Pattern: ");
-      for(uint8_t i=0; i<32; i++) bb_uart_putc_dual('U'); // 0x55 pattern
-      bb_uart_puts("\r\n");
+      bb_uart_tx_puts_blocking("\r\nBITBANG UART 9600 OK\r\n");
+      bb_uart_tx_puts_blocking("Pattern: ");
+      for(uint8_t i=0; i<32; i++){
+         while(!bb_uart_tx_has_space()) { }
+         (void)bb_uart_tx_enqueue('U'); // 0x55 pattern
+      }
+      bb_uart_tx_puts_blocking("\r\n");
       Delay_ms(800);
    }
 }
