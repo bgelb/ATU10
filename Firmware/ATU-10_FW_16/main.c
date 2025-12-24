@@ -5,6 +5,7 @@
 #include "pic_init.h"
 
 #include "main.h"
+#include "bb_uart.h"
 #include "oled_control.h"
 
 #include "Soft_I2C.h"
@@ -44,6 +45,10 @@ const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13
 #define GIT_HASH "unknown"
 #endif
 
+#ifdef EXT_BITBANG_UART_TEST
+static void ext_bitbang_uart_test(void);
+#endif
+
 
 // interrupt processing
 void __interrupt() isr(void)  {
@@ -55,7 +60,6 @@ void __interrupt() isr(void)  {
       if(off_cnt!=0) off_cnt--;
       TMR0L = 0xC0;   // 8_000 cycles to OF
       TMR0H = 0xE0;
-      //
       if(Tick>=btn_cnt){  // every 10ms
          btn_cnt += 10;
          //
@@ -88,6 +92,12 @@ void __interrupt() isr(void)  {
             btn_2_cnt = 0;
       }
    }
+#ifdef EXT_BITBANG_UART_TEST
+   if(PIR4bits.TMR2IF) {
+      PIR4bits.TMR2IF = 0;
+      bb_uart_tx_isr_tick();
+   }
+#endif
    return;
 }
 
@@ -99,6 +109,14 @@ void main() {
    Key_out = 1;
    gre = 1;
    oled_start();
+#ifdef EXT_BITBANG_UART_TEST
+   oled_clear();
+   oled_wr_str_s(0, 0, "EXT UART", 8);
+   oled_wr_str_s(1, 0, "BITBANG", 7);
+   oled_wr_str_s(2, 0, "9600 8N1", 9);
+   oled_wr_str_s(3, 0, "RD1 ONLY", 8);
+   ext_bitbang_uart_test();
+#endif
    //if(Debug) check_reset_flags();
    ADC_Init();
    Overflow = 0;
@@ -470,6 +488,35 @@ void Relay_set(char L, char C, char I){
    return;
 }
 //
+#ifdef EXT_BITBANG_UART_TEST
+// Bit-banged TX on RD1 (open-drain) for EXT UART wiring checks.
+static void ext_bitbang_uart_test(void){
+   // Ensure EUSART and PPS outputs are not driving RD1.
+   //TX1STAbits.TXEN = 0;
+   //RC1STAbits.SPEN = 0;
+   PPSLOCK = 0x55;
+   PPSLOCK = 0xAA;
+   PPSLOCKbits.PPSLOCKED = 0;
+   RD1PPS = 0x00; // LATD drives RD1 when PPS output is disabled.
+   RD2PPS = 0x00;
+   PPSLOCK = 0x55;
+   PPSLOCK = 0xAA;
+   PPSLOCKbits.PPSLOCKED = 1;
+
+   bb_uart_tx_init();
+
+   while(1){
+      bb_uart_tx_puts_blocking("\r\nBITBANG UART 9600 OK\r\n");
+      bb_uart_tx_puts_blocking("Pattern: ");
+      for(uint8_t i=0; i<32; i++){
+         while(!bb_uart_tx_has_space()) { }
+         (void)bb_uart_tx_enqueue('U'); // 0x55 pattern
+      }
+      bb_uart_tx_puts_blocking("\r\n");
+      Delay_ms(800);
+   }
+}
+#endif
 void power_off(void){
    char button_cnt;
    // Disable interrupts
