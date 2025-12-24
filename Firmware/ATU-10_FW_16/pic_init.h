@@ -27,4 +27,13 @@
 #define Rel_to_gnd       LATDbits.LATD3
 #define Rel_to_plus_N    LATCbits.LATC4
 
+#ifdef EXT_BITBANG_UART_TEST
+// Timer2 tick for 4x oversampled bitbang TX.
+#define BB_UART_BAUD 9600u
+#define BB_UART_OVERSAMPLE 4u
+#define BB_UART_TICKS_PER_SEC (BB_UART_BAUD * BB_UART_OVERSAMPLE)
+#define BB_UART_TMR2_COUNTS ((uint16_t)((_XTAL_FREQ / 4u) / BB_UART_TICKS_PER_SEC))
+#define BB_UART_TMR2_PR2 ((uint8_t)(BB_UART_TMR2_COUNTS - 1u))
+#endif
+
 #endif // ATU10_PIC_INIT_H

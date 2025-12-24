@@ -49,10 +49,28 @@ void pic_init (void) {
   PIR0bits.TMR0IF = 0;
   T0CON0bits.T0EN = 1;
   PIE0bits.TMR0IE = 1;
-  
+
+#ifdef EXT_BITBANG_UART_TEST
+  // Timer2 settings for 4x bitbang UART tick.
+  T2CLKCONbits.CS = 0x1; // Fosc/4 (hardcoded)
+  T2HLT = 0x00;           // Free-running mode
+  T2RST = 0x00;           // No reset source
+  T2CONbits.T2CKPS = 0;   // 1:1 prescale
+  T2CONbits.T2OUTPS = 0;  // 1:1 postscale
+  PR2 = BB_UART_TMR2_PR2;
+  TMR2 = 0;
+  PIR4bits.TMR2IF = 0;
+  PIE4bits.TMR2IE = 0;
+  T2CONbits.TMR2ON = 0;
+#endif
+
   // Modules disable
   PMD0 = 0b00011110; //
+#ifdef EXT_BITBANG_UART_TEST
+  PMD1 = 0b11111010; // Keep Timer2 enabled for UART tick.
+#else
   PMD1 = 0b11111110;
+#endif
   PMD2 = 0b01000111;
   PMD3 = 0b01111111;
   PMD4 = 0b1110111;
