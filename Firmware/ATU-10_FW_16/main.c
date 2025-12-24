@@ -513,7 +513,6 @@ static void ext_bitbang_uart_test(void){
    LATDbits.LATD1 = 1;
 
    bb_uart_tx_init();
-   INTCONbits.GIE = 1;
 
    while(1){
       bb_uart_tx_puts_blocking("\r\nBITBANG UART 9600 OK\r\n");
