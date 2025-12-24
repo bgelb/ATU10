@@ -18,6 +18,7 @@ static volatile uint8_t bb_uart_tx_state = BB_UART_TX_IDLE;
 static volatile uint8_t bb_uart_tx_bit = 0;
 static volatile uint8_t bb_uart_tx_shift = 0;
 static volatile uint8_t bb_uart_subtick = 0;
+static volatile uint8_t bb_uart_tx_ready = 0;
 
 static void bb_uart_set_levels(uint8_t rd1_level){
    LATDbits.LATD1 = rd1_level ? 1 : 0;
@@ -92,6 +93,9 @@ static void bb_uart_tx_fsm_step(void){
 }
 
 void bb_uart_tx_isr_tick(void){
+   if(!bb_uart_tx_ready){
+      return;
+   }
    bb_uart_subtick++;
    if(bb_uart_subtick >= BB_UART_OVERSAMPLE){
       bb_uart_subtick = 0u;
@@ -101,6 +105,7 @@ void bb_uart_tx_isr_tick(void){
 
 void bb_uart_tx_init(void){
    uint8_t gie = bb_uart_irq_save();
+   bb_uart_tx_ready = 0u;
    data_to_send_head = 0u;
    data_to_send_tail = 0u;
    data_to_send_count = 0u;
@@ -110,6 +115,7 @@ void bb_uart_tx_init(void){
    bb_uart_subtick = 0u;
    bb_uart_irq_restore(gie);
    bb_uart_set_levels(1u);
+   bb_uart_tx_ready = 1u;
    INTCONbits.PEIE = 1;
    PIR4bits.TMR2IF = 0;
    PIE4bits.TMR2IE = 1;
