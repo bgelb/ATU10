@@ -491,13 +491,11 @@ void Relay_set(char L, char C, char I){
 #ifdef EXT_BITBANG_UART_TEST
 // Bit-banged TX on RD1 (open-drain) for EXT UART wiring checks.
 static void ext_bitbang_uart_test(void){
-   // Ensure EUSART and PPS outputs are not driving RD1.
-   //TX1STAbits.TXEN = 0;
-   //RC1STAbits.SPEN = 0;
+   // ensure PPS is configures so that RD1 and RD2 behave as regular GPIOs.
    PPSLOCK = 0x55;
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 0;
-   RD1PPS = 0x00; // LATD drives RD1 when PPS output is disabled.
+   RD1PPS = 0x00;
    RD2PPS = 0x00;
    PPSLOCK = 0x55;
    PPSLOCK = 0xAA;
