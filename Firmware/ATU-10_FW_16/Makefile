@@ -13,14 +13,20 @@ endif
 
 GIT_HASH ?= $(shell git rev-parse --short=7 HEAD 2>/dev/null || echo unknown)
 
+EXT_BITBANG_UART_TEST ?= 0
+
 TARGET ?= ATU-10
 OUTDIR ?= build
 
-SRCS := main.c pic_init.c oled_control.c Soft_I2C.c xc8_compat.c xc8_adc.c
+SRCS := main.c bb_uart.c pic_init.c oled_control.c Soft_I2C.c xc8_compat.c xc8_adc.c
 
 CFLAGS := -mcpu=16lf18877 -mdfp=$(MDFP) -O1
 CFLAGS += -mwarn=1
 CFLAGS += -DGIT_HASH=\"$(GIT_HASH)\"
+
+ifeq ($(EXT_BITBANG_UART_TEST),1)
+CFLAGS += -DEXT_BITBANG_UART_TEST=1
+endif
 
 OBJS := $(SRCS:%.c=$(OUTDIR)/%.o)
 
