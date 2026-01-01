@@ -13,7 +13,8 @@
 #define BB_UART_RX_BUF_SIZE 16u
 #define BB_UART_RX_BUF_MASK (BB_UART_RX_BUF_SIZE - 1u)
 #define BB_UART_RX_IDLE 0u
-#define BB_UART_RX_DATA 1u
+#define BB_UART_RX_SAMPLE_WAIT 1u
+#define BB_UART_RX_DATA 2u
 
 static volatile char data_to_send[BB_UART_TX_BUF_SIZE];
 static volatile uint8_t data_to_send_head = 0;
@@ -135,30 +136,37 @@ static void bb_uart_rx_fsm_tick(void){
    switch(bb_uart_rx_state){
       case BB_UART_RX_IDLE:
          if((bb_uart_rx_last != 0u) && (rx_level == 0u)){
+            bb_uart_rx_state = BB_UART_RX_SAMPLE_WAIT;
+            bb_uart_rx_wait = 0u;
+         }
+         break;
+      case BB_UART_RX_SAMPLE_WAIT:
+         // delay by one 1/4 sample after the falling edge of the start bit so that
+         // the sample points are more centered within the bit period
+         bb_uart_rx_wait++;
+         if(bb_uart_rx_wait == 1u){
             bb_uart_rx_state = BB_UART_RX_DATA;
-            bb_uart_rx_wait = 5u;
+            bb_uart_rx_wait = 0u;
             bb_uart_rx_bit = 0u;
             bb_uart_rx_shift = 0u;
          }
          break;
       case BB_UART_RX_DATA:
-         if(bb_uart_rx_wait > 0u){
-            bb_uart_rx_wait--;
-            if(bb_uart_rx_wait == 0u){
-               if(rx_level != 0u){
-                  bb_uart_rx_shift |= (uint8_t)(1u << bb_uart_rx_bit);
+         bb_uart_rx_wait++;
+         if(bb_uart_rx_wait == BB_UART_OVERSAMPLE){
+            if(rx_level != 0u){
+               bb_uart_rx_shift |= (uint8_t)(1u << bb_uart_rx_bit);
+            }
+            bb_uart_rx_bit++;
+            if(bb_uart_rx_bit == 8u){
+               if(data_received_count < BB_UART_RX_BUF_SIZE){
+                  data_received[data_received_head] = bb_uart_rx_shift;
+                  data_received_head = (uint8_t)((data_received_head + 1u) & BB_UART_RX_BUF_MASK);
+                  data_received_count++;
                }
-               bb_uart_rx_bit++;
-               if(bb_uart_rx_bit >= 8u){
-                  if(data_received_count < BB_UART_RX_BUF_SIZE){
-                     data_received[data_received_head] = bb_uart_rx_shift;
-                     data_received_head = (uint8_t)((data_received_head + 1u) & BB_UART_RX_BUF_MASK);
-                     data_received_count++;
-                  }
-                  bb_uart_rx_state = BB_UART_RX_IDLE;
-               }else{
-                  bb_uart_rx_wait = 4u;
-               }
+               bb_uart_rx_state = BB_UART_RX_IDLE;
+            } else {
+               bb_uart_rx_wait = 0u;
             }
          }
          break;
