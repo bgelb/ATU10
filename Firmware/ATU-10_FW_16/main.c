@@ -507,24 +507,15 @@ void Relay_set(char L, char C, char I){
 }
 //
 #ifdef EXT_SERIAL_DEBUG
-#define DEBUG_UART_TX_BUF_SIZE 128u
-#define DEBUG_UART_TX_BUF_MASK (DEBUG_UART_TX_BUF_SIZE - 1u)
 #define DEBUG_UART_CMD_BUF_SIZE 24u
 
-static char debug_uart_tx_buf[DEBUG_UART_TX_BUF_SIZE];
-static uint8_t debug_uart_tx_head = 0u;
-static uint8_t debug_uart_tx_tail = 0u;
 static char debug_uart_cmd_buf[DEBUG_UART_CMD_BUF_SIZE];
 static uint8_t debug_uart_cmd_len = 0u;
 static uint8_t debug_uart_saw_cr = 0u;
 
 static void debug_uart_queue_char(char c){
-   uint8_t next = (uint8_t)((debug_uart_tx_head + 1u) & DEBUG_UART_TX_BUF_MASK);
-   if(next == debug_uart_tx_tail){
-      return;
-   }
-   debug_uart_tx_buf[debug_uart_tx_head] = c;
-   debug_uart_tx_head = next;
+   while(!bb_uart_tx_has_space()) { }
+   (void)bb_uart_tx_enqueue((uint8_t)c);
 }
 
 static void debug_uart_queue_str(const char *s){
@@ -558,13 +549,6 @@ static void debug_uart_queue_swr(uint16_t value){
    debug_uart_queue_char('.');
    debug_uart_queue_char((char)('0' + (frac / 10u)));
    debug_uart_queue_char((char)('0' + (frac % 10u)));
-}
-
-static void debug_uart_flush_tx(void){
-   while((debug_uart_tx_tail != debug_uart_tx_head) && bb_uart_tx_has_space()){
-      (void)bb_uart_tx_enqueue((uint8_t)debug_uart_tx_buf[debug_uart_tx_tail]);
-      debug_uart_tx_tail = (uint8_t)((debug_uart_tx_tail + 1u) & DEBUG_UART_TX_BUF_MASK);
-   }
 }
 
 static void debug_uart_prompt(void){
@@ -779,8 +763,6 @@ static void debug_uart_init(void){
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 1;
 
-   debug_uart_tx_head = 0u;
-   debug_uart_tx_tail = 0u;
    debug_uart_cmd_len = 0u;
    debug_uart_saw_cr = 0u;
 
@@ -792,7 +774,6 @@ static void debug_uart_init(void){
 
 static void debug_uart_poll(void){
    debug_uart_poll_rx();
-   debug_uart_flush_tx();
 }
 #endif
 

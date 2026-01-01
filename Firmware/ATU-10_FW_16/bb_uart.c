@@ -3,7 +3,7 @@
 #ifdef EXT_SERIAL_DEBUG
 #include "pic_init.h"
 
-#define BB_UART_TX_BUF_SIZE 16u
+#define BB_UART_TX_BUF_SIZE 128u
 #define BB_UART_TX_BUF_MASK (BB_UART_TX_BUF_SIZE - 1u)
 #define BB_UART_TX_IDLE 0u
 #define BB_UART_TX_START 1u
