@@ -46,8 +46,8 @@ const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13
 #endif
 
 #ifdef EXT_SERIAL_DEBUG
-static void debug_uart_init(void);
-static void debug_uart_poll(void);
+static void serial_debug_init(void);
+static void serial_debug_poll(void);
 #endif
 
 static void reset_event_flags(void){
@@ -128,7 +128,7 @@ void main() {
    gre = 1;
    oled_start();
 #ifdef EXT_SERIAL_DEBUG
-   debug_uart_init();
+   serial_debug_init();
 #endif
    //if(Debug) check_reset_flags();
    ADC_Init();
@@ -150,7 +150,7 @@ void main() {
          watch_swr();
       }
 #ifdef EXT_SERIAL_DEBUG
-      debug_uart_poll();
+      serial_debug_poll();
 #endif
       //
       if(Disp_time!=0 && disp_cnt==0){  // Display off
@@ -509,22 +509,22 @@ void Relay_set(char L, char C, char I){
 #ifdef EXT_SERIAL_DEBUG
 #define DEBUG_UART_CMD_BUF_SIZE 24u
 
-static char debug_uart_cmd_buf[DEBUG_UART_CMD_BUF_SIZE];
-static uint8_t debug_uart_cmd_len = 0u;
-static uint8_t debug_uart_saw_cr = 0u;
+static char serial_debug_cmd_buf[DEBUG_UART_CMD_BUF_SIZE];
+static uint8_t serial_debug_cmd_len = 0u;
+static uint8_t serial_debug_saw_cr = 0u;
 
-static void debug_uart_putc(char c){
+static void serial_debug_putc(char c){
    char buf[2];
    buf[0] = c;
    buf[1] = '\0';
    bb_uart_tx_puts_blocking(buf);
 }
 
-static void debug_uart_puts(const char *s){
+static void serial_debug_puts(const char *s){
    bb_uart_tx_puts_blocking(s);
 }
 
-static void debug_uart_queue_uint8(uint8_t value){
+static void serial_debug_queue_uint8(uint8_t value){
    char buf[4];
    uint8_t len = 0u;
    uint8_t i = 0u;
@@ -538,50 +538,50 @@ static void debug_uart_queue_uint8(uint8_t value){
    }
    buf[len++] = (char)('0' + value);
    for(i = 0u; i < len; i++){
-      debug_uart_putc(buf[i]);
+      serial_debug_putc(buf[i]);
    }
 }
 
-static void debug_uart_queue_swr(uint16_t value){
+static void serial_debug_queue_swr(uint16_t value){
    uint8_t whole = (uint8_t)(value / 100u);
    uint8_t frac = (uint8_t)(value % 100u);
-   debug_uart_putc((char)('0' + whole));
-   debug_uart_putc('.');
-   debug_uart_putc((char)('0' + (frac / 10u)));
-   debug_uart_putc((char)('0' + (frac % 10u)));
+   serial_debug_putc((char)('0' + whole));
+   serial_debug_putc('.');
+   serial_debug_putc((char)('0' + (frac / 10u)));
+   serial_debug_putc((char)('0' + (frac % 10u)));
 }
 
-static void debug_uart_prompt(void){
-   debug_uart_puts("-> ");
+static void serial_debug_prompt(void){
+   serial_debug_puts("-> ");
 }
 
-static void debug_uart_print_config(void){
+static void serial_debug_print_config(void){
    uint8_t swr_valid = 0u;
    get_pwr();
    if((PWR >= min_for_start) && (PWR <= max_for_start)){
       get_swr();
       swr_valid = 1u;
    }
-   debug_uart_puts("L=");
-   debug_uart_queue_uint8((uint8_t)ind);
-   debug_uart_puts(" C=");
-   debug_uart_queue_uint8((uint8_t)cap);
-   debug_uart_puts(" SW=");
-   debug_uart_queue_uint8((uint8_t)SW);
-   debug_uart_puts(" SWR=");
+   serial_debug_puts("L=");
+   serial_debug_queue_uint8((uint8_t)ind);
+   serial_debug_puts(" C=");
+   serial_debug_queue_uint8((uint8_t)cap);
+   serial_debug_puts(" SW=");
+   serial_debug_queue_uint8((uint8_t)SW);
+   serial_debug_puts(" SWR=");
    if(swr_valid){
-      debug_uart_queue_swr((uint16_t)SWR);
+      serial_debug_queue_swr((uint16_t)SWR);
    }else{
-      debug_uart_putc('x');
+      serial_debug_putc('x');
    }
-   debug_uart_puts("\n");
+   serial_debug_puts("\n");
 }
 
-static void debug_uart_apply_relays(void){
+static void serial_debug_apply_relays(void){
    Relay_set(ind, cap, SW);
 }
 
-static uint8_t debug_uart_parse_uint8(const char *s, uint8_t *out){
+static uint8_t serial_debug_parse_uint8(const char *s, uint8_t *out){
    uint16_t value = 0u;
    uint8_t saw_digit = 0u;
    while((*s == ' ') || (*s == '\t')){
@@ -605,7 +605,7 @@ static uint8_t debug_uart_parse_uint8(const char *s, uint8_t *out){
    return 1u;
 }
 
-static void debug_uart_adjust_cap(int delta){
+static void serial_debug_adjust_cap(int delta){
    int value = (int)cap + delta;
    if(value < 0){
       value = 0;
@@ -613,10 +613,10 @@ static void debug_uart_adjust_cap(int delta){
       value = 127;
    }
    cap = (char)value;
-   debug_uart_apply_relays();
+   serial_debug_apply_relays();
 }
 
-static void debug_uart_adjust_ind(int delta){
+static void serial_debug_adjust_ind(int delta){
    int value = (int)ind + delta;
    if(value < 0){
       value = 0;
@@ -624,134 +624,134 @@ static void debug_uart_adjust_ind(int delta){
       value = 127;
    }
    ind = (char)value;
-   debug_uart_apply_relays();
+   serial_debug_apply_relays();
 }
 
-static void debug_uart_handle_command(void){
-   const char *p = debug_uart_cmd_buf;
+static void serial_debug_handle_command(void){
+   const char *p = serial_debug_cmd_buf;
    char cmd = 0;
    uint8_t value = 0u;
    uint8_t ok = 0u;
-   if(debug_uart_cmd_len == 0u){
-      debug_uart_prompt();
+   if(serial_debug_cmd_len == 0u){
+      serial_debug_prompt();
       return;
    }
-   debug_uart_cmd_buf[debug_uart_cmd_len] = '\0';
+   serial_debug_cmd_buf[serial_debug_cmd_len] = '\0';
    while((*p == ' ') || (*p == '\t')){
       p++;
    }
    if(*p == '\0'){
-      debug_uart_cmd_len = 0u;
-      debug_uart_prompt();
+      serial_debug_cmd_len = 0u;
+      serial_debug_prompt();
       return;
    }
    cmd = *p++;
    switch(cmd){
       case 'l':
       case 'L':
-         ok = debug_uart_parse_uint8(p, &value);
+         ok = serial_debug_parse_uint8(p, &value);
          if(ok){
             ind = (char)value;
-            debug_uart_apply_relays();
-            debug_uart_print_config();
+            serial_debug_apply_relays();
+            serial_debug_print_config();
          }else{
-            debug_uart_puts("ERR\n");
+            serial_debug_puts("ERR\n");
          }
          break;
       case 'c':
       case 'C':
-         ok = debug_uart_parse_uint8(p, &value);
+         ok = serial_debug_parse_uint8(p, &value);
          if(ok){
             cap = (char)value;
-            debug_uart_apply_relays();
-            debug_uart_print_config();
+            serial_debug_apply_relays();
+            serial_debug_print_config();
          }else{
-            debug_uart_puts("ERR\n");
+            serial_debug_puts("ERR\n");
          }
          break;
       case 't':
       case 'T':
-         ok = debug_uart_parse_uint8(p, &value);
+         ok = serial_debug_parse_uint8(p, &value);
          if(ok && (value <= 1u)){
             SW = (char)value;
-            debug_uart_apply_relays();
-            debug_uart_print_config();
+            serial_debug_apply_relays();
+            serial_debug_print_config();
          }else{
-            debug_uart_puts("ERR\n");
+            serial_debug_puts("ERR\n");
          }
          break;
       case 'r':
       case 'R':
-         debug_uart_print_config();
+         serial_debug_print_config();
          break;
       default:
-         debug_uart_puts("ERR\n");
+         serial_debug_puts("ERR\n");
          break;
    }
-   debug_uart_cmd_len = 0u;
-   debug_uart_prompt();
+   serial_debug_cmd_len = 0u;
+   serial_debug_prompt();
 }
 
-static uint8_t debug_uart_handle_immediate(char c){
-   if(debug_uart_cmd_len != 0u){
+static uint8_t serial_debug_handle_immediate(char c){
+   if(serial_debug_cmd_len != 0u){
       return 0u;
    }
    switch(c){
       case 'a':
-         debug_uart_adjust_cap(-1);
-         debug_uart_print_config();
-         debug_uart_prompt();
+         serial_debug_adjust_cap(-1);
+         serial_debug_print_config();
+         serial_debug_prompt();
          return 1u;
       case 'd':
-         debug_uart_adjust_cap(1);
-         debug_uart_print_config();
-         debug_uart_prompt();
+         serial_debug_adjust_cap(1);
+         serial_debug_print_config();
+         serial_debug_prompt();
          return 1u;
       case 's':
-         debug_uart_adjust_ind(-1);
-         debug_uart_print_config();
-         debug_uart_prompt();
+         serial_debug_adjust_ind(-1);
+         serial_debug_print_config();
+         serial_debug_prompt();
          return 1u;
       case 'w':
-         debug_uart_adjust_ind(1);
-         debug_uart_print_config();
-         debug_uart_prompt();
+         serial_debug_adjust_ind(1);
+         serial_debug_print_config();
+         serial_debug_prompt();
          return 1u;
       default:
          return 0u;
    }
 }
 
-static void debug_uart_poll_rx(void){
+static void serial_debug_poll_rx(void){
    while(bb_uart_rx_has_data()){
       uint8_t c = 0u;
       if(!bb_uart_rx_dequeue(&c)){
          break;
       }
       if((c == '\r') || (c == '\n')){
-         if((c == '\n') && debug_uart_saw_cr){
-            debug_uart_saw_cr = 0u;
+         if((c == '\n') && serial_debug_saw_cr){
+            serial_debug_saw_cr = 0u;
             continue;
          }
-         debug_uart_saw_cr = (c == '\r') ? 1u : 0u;
-         debug_uart_putc('\n');
-         debug_uart_handle_command();
+         serial_debug_saw_cr = (c == '\r') ? 1u : 0u;
+         serial_debug_putc('\n');
+         serial_debug_handle_command();
          continue;
       }
-      debug_uart_saw_cr = 0u;
-      if(debug_uart_handle_immediate((char)c)){
+      serial_debug_saw_cr = 0u;
+      if(serial_debug_handle_immediate((char)c)){
          continue;
       }
-      debug_uart_putc((char)c);
-      if(debug_uart_cmd_len < (DEBUG_UART_CMD_BUF_SIZE - 1u)){
-         debug_uart_cmd_buf[debug_uart_cmd_len++] = (char)c;
+      serial_debug_putc((char)c);
+      if(serial_debug_cmd_len < (DEBUG_UART_CMD_BUF_SIZE - 1u)){
+         serial_debug_cmd_buf[serial_debug_cmd_len++] = (char)c;
       }else{
-         debug_uart_cmd_len = 0u;
+         serial_debug_cmd_len = 0u;
       }
    }
 }
 
-static void debug_uart_init(void){
+static void serial_debug_init(void){
    // ensure PPS is configured so that RD1 and RD2 behave as regular GPIOs.
    PPSLOCK = 0x55;
    PPSLOCK = 0xAA;
@@ -762,17 +762,17 @@ static void debug_uart_init(void){
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 1;
 
-   debug_uart_cmd_len = 0u;
-   debug_uart_saw_cr = 0u;
+   serial_debug_cmd_len = 0u;
+   serial_debug_saw_cr = 0u;
 
    bb_uart_tx_init();
 
-   debug_uart_puts("\nDEBUG UART READY\n");
-   debug_uart_prompt();
+   serial_debug_puts("\nDEBUG UART READY\n");
+   serial_debug_prompt();
 }
 
-static void debug_uart_poll(void){
-   debug_uart_poll_rx();
+static void serial_debug_poll(void){
+   serial_debug_poll_rx();
 }
 #endif
 
