@@ -93,19 +93,15 @@ bool bb_uart_rx_dequeue(uint8_t *c){
 static void bb_uart_tx_fsm_step(void){
    switch(bb_uart_tx_state){
       case BB_UART_TX_IDLE:
-         if(data_to_send_count == 0u){
-            bb_uart_set_levels(1u);
-            break;
+         bb_uart_set_levels(1u);
+         if(data_to_send_count > 0u){
+            bb_uart_tx_shift = data_to_send[data_to_send_tail];
+            bb_uart_tx_bit = 0u;
+            bb_uart_tx_state = BB_UART_TX_START;
          }
-         bb_uart_tx_shift = data_to_send[data_to_send_tail];
-         bb_uart_tx_bit = 0u;
-         bb_uart_tx_state = BB_UART_TX_START;
-         bb_uart_set_levels(0u);
          break;
       case BB_UART_TX_START:
-         bb_uart_set_levels((uint8_t)(bb_uart_tx_shift & 0x01u));
-         bb_uart_tx_shift >>= 1;
-         bb_uart_tx_bit = 1u;
+         bb_uart_set_levels(0u);
          bb_uart_tx_state = BB_UART_TX_DATA;
          break;
       case BB_UART_TX_DATA:
@@ -123,7 +119,13 @@ static void bb_uart_tx_fsm_step(void){
          if(data_to_send_count > 0u){
             data_to_send_count--;
          }
-         bb_uart_tx_state = BB_UART_TX_IDLE;
+         if(data_to_send_count > 0u){
+            bb_uart_tx_shift = data_to_send[data_to_send_tail];
+            bb_uart_tx_bit = 0u;
+            bb_uart_tx_state = BB_UART_TX_START;
+         }else{
+            bb_uart_tx_state = BB_UART_TX_IDLE;
+         }
          break;
    }
 }
