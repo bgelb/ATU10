@@ -28,15 +28,30 @@
 #define Rel_to_plus_N    LATCbits.LATC4
 
 #ifdef EXT_SERIAL_DEBUG
-// Timer2 tick for 4x oversampled bitbang TX.
+
+// Uncomment only one of the following to select baud rate
+//#define BB_UART_1200BD 1
+#define BB_UART_9600BD 1
+
+// 1200 baud
+#ifdef BB_UART_1200BD
 #define BB_UART_BAUD 1200u
-#define BB_UART_OVERSAMPLE 4u
 #define BB_UART_TMR2_PRESCALE 8u
 #define BB_UART_TMR2_PRESCALE_BITS 3u
-#define BB_UART_TMR2_PR2_ADJ 0
+#endif
+
+// 9600 baud
+#ifdef BB_UART_9600BD
+#define BB_UART_BAUD 9600u
+#define BB_UART_TMR2_PRESCALE 1u
+#define BB_UART_TMR2_PRESCALE_BITS 0u
+#endif
+
+// Timer2 tick for 4x oversampled bitbang TX.
+#define BB_UART_OVERSAMPLE 4u
 #define BB_UART_TICKS_PER_SEC (BB_UART_BAUD * BB_UART_OVERSAMPLE)
 #define BB_UART_TMR2_COUNTS ((uint16_t)((_XTAL_FREQ / 4u) / (BB_UART_TICKS_PER_SEC * BB_UART_TMR2_PRESCALE)))
-#define BB_UART_TMR2_PR2 ((uint8_t)(BB_UART_TMR2_COUNTS - 1u + BB_UART_TMR2_PR2_ADJ))
+#define BB_UART_TMR2_PR2 ((uint8_t)(BB_UART_TMR2_COUNTS - 1u))
 #endif
 
 #endif // ATU10_PIC_INIT_H
