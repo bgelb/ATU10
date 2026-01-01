@@ -513,15 +513,15 @@ static char debug_uart_cmd_buf[DEBUG_UART_CMD_BUF_SIZE];
 static uint8_t debug_uart_cmd_len = 0u;
 static uint8_t debug_uart_saw_cr = 0u;
 
-static void debug_uart_queue_char(char c){
-   while(!bb_uart_tx_has_space()) { }
-   (void)bb_uart_tx_enqueue((uint8_t)c);
+static void debug_uart_putc(char c){
+   char buf[2];
+   buf[0] = c;
+   buf[1] = '\0';
+   bb_uart_tx_puts_blocking(buf);
 }
 
-static void debug_uart_queue_str(const char *s){
-   while(*s){
-      debug_uart_queue_char(*s++);
-   }
+static void debug_uart_puts(const char *s){
+   bb_uart_tx_puts_blocking(s);
 }
 
 static void debug_uart_queue_uint8(uint8_t value){
@@ -538,21 +538,21 @@ static void debug_uart_queue_uint8(uint8_t value){
    }
    buf[len++] = (char)('0' + value);
    for(i = 0u; i < len; i++){
-      debug_uart_queue_char(buf[i]);
+      debug_uart_putc(buf[i]);
    }
 }
 
 static void debug_uart_queue_swr(uint16_t value){
    uint8_t whole = (uint8_t)(value / 100u);
    uint8_t frac = (uint8_t)(value % 100u);
-   debug_uart_queue_char((char)('0' + whole));
-   debug_uart_queue_char('.');
-   debug_uart_queue_char((char)('0' + (frac / 10u)));
-   debug_uart_queue_char((char)('0' + (frac % 10u)));
+   debug_uart_putc((char)('0' + whole));
+   debug_uart_putc('.');
+   debug_uart_putc((char)('0' + (frac / 10u)));
+   debug_uart_putc((char)('0' + (frac % 10u)));
 }
 
 static void debug_uart_prompt(void){
-   debug_uart_queue_str("-> ");
+   debug_uart_puts("-> ");
 }
 
 static void debug_uart_print_config(void){
@@ -562,19 +562,19 @@ static void debug_uart_print_config(void){
       get_swr();
       swr_valid = 1u;
    }
-   debug_uart_queue_str("L=");
+   debug_uart_puts("L=");
    debug_uart_queue_uint8((uint8_t)ind);
-   debug_uart_queue_str(" C=");
+   debug_uart_puts(" C=");
    debug_uart_queue_uint8((uint8_t)cap);
-   debug_uart_queue_str(" SW=");
+   debug_uart_puts(" SW=");
    debug_uart_queue_uint8((uint8_t)SW);
-   debug_uart_queue_str(" SWR=");
+   debug_uart_puts(" SWR=");
    if(swr_valid){
       debug_uart_queue_swr((uint16_t)SWR);
    }else{
-      debug_uart_queue_char('x');
+      debug_uart_putc('x');
    }
-   debug_uart_queue_str("\r\n");
+   debug_uart_puts("\n");
 }
 
 static void debug_uart_apply_relays(void){
@@ -655,7 +655,7 @@ static void debug_uart_handle_command(void){
             debug_uart_apply_relays();
             debug_uart_print_config();
          }else{
-            debug_uart_queue_str("ERR\r\n");
+            debug_uart_puts("ERR\n");
          }
          break;
       case 'c':
@@ -666,7 +666,7 @@ static void debug_uart_handle_command(void){
             debug_uart_apply_relays();
             debug_uart_print_config();
          }else{
-            debug_uart_queue_str("ERR\r\n");
+            debug_uart_puts("ERR\n");
          }
          break;
       case 't':
@@ -677,7 +677,7 @@ static void debug_uart_handle_command(void){
             debug_uart_apply_relays();
             debug_uart_print_config();
          }else{
-            debug_uart_queue_str("ERR\r\n");
+            debug_uart_puts("ERR\n");
          }
          break;
       case 'r':
@@ -685,7 +685,7 @@ static void debug_uart_handle_command(void){
          debug_uart_print_config();
          break;
       default:
-         debug_uart_queue_str("ERR\r\n");
+         debug_uart_puts("ERR\n");
          break;
    }
    debug_uart_cmd_len = 0u;
@@ -734,8 +734,7 @@ static void debug_uart_poll_rx(void){
             continue;
          }
          debug_uart_saw_cr = (c == '\r') ? 1u : 0u;
-         debug_uart_queue_char('\r');
-         debug_uart_queue_char('\n');
+         debug_uart_putc('\n');
          debug_uart_handle_command();
          continue;
       }
@@ -743,7 +742,7 @@ static void debug_uart_poll_rx(void){
       if(debug_uart_handle_immediate((char)c)){
          continue;
       }
-      debug_uart_queue_char((char)c);
+      debug_uart_putc((char)c);
       if(debug_uart_cmd_len < (DEBUG_UART_CMD_BUF_SIZE - 1u)){
          debug_uart_cmd_buf[debug_uart_cmd_len++] = (char)c;
       }else{
@@ -768,7 +767,7 @@ static void debug_uart_init(void){
 
    bb_uart_tx_init();
 
-   debug_uart_queue_str("\r\nDEBUG UART READY\r\n");
+   debug_uart_puts("\nDEBUG UART READY\n");
    debug_uart_prompt();
 }
 
