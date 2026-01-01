@@ -113,7 +113,7 @@ void main() {
    oled_clear();
    oled_wr_str_s(0, 0, "EXT UART", 8);
    oled_wr_str_s(1, 0, "BITBANG", 7);
-   oled_wr_str_s(2, 0, "9600 8N1", 9);
+   oled_wr_str_s(2, 0, "1200 8N1", 9);
    oled_wr_str_s(3, 0, "RD1 ONLY", 8);
    ext_bitbang_uart_test();
 #endif
@@ -503,15 +503,23 @@ static void ext_bitbang_uart_test(void){
 
    bb_uart_tx_init();
 
+   bb_uart_tx_puts_blocking("\r\nBITBANG UART 1200 OK\r\n");
+   bb_uart_tx_puts_blocking("Pattern: ");
+   for(uint8_t i=0; i<32; i++){
+      while(!bb_uart_tx_has_space()) { }
+      (void)bb_uart_tx_enqueue('U'); // 0x55 pattern
+   }
+   bb_uart_tx_puts_blocking("\r\n");
+
    while(1){
-      bb_uart_tx_puts_blocking("\r\nBITBANG UART 9600 OK\r\n");
-      bb_uart_tx_puts_blocking("Pattern: ");
-      for(uint8_t i=0; i<32; i++){
-         while(!bb_uart_tx_has_space()) { }
-         (void)bb_uart_tx_enqueue('U'); // 0x55 pattern
+      if(bb_uart_rx_has_data()){
+         uint8_t c = 0;
+         if(bb_uart_rx_dequeue(&c)){
+            while(!bb_uart_tx_has_space()) { }
+            (void)bb_uart_tx_enqueue(c);
+         }
       }
-      bb_uart_tx_puts_blocking("\r\n");
-      Delay_ms(800);
+      Delay_ms(10);
    }
 }
 #endif

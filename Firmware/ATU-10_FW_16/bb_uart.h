@@ -10,6 +10,8 @@ void bb_uart_tx_init(void);
 bool bb_uart_tx_has_space(void);
 bool bb_uart_tx_enqueue(uint8_t c);
 void bb_uart_tx_puts_blocking(const char *s);
+bool bb_uart_rx_has_data(void);
+bool bb_uart_rx_dequeue(uint8_t *c);
 #endif
 
 #endif // ATU10_BB_UART_H

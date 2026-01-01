@@ -52,10 +52,10 @@ void pic_init (void) {
 
 #ifdef EXT_BITBANG_UART_TEST
   // Timer2 settings for 4x bitbang UART tick.
-  T2CLKCONbits.CS = 0x1; // Fosc/4 (hardcoded)
+  T2CLKCONbits.CS = 0x1; // Fosc/4 (matches BB_UART_TMR2_COUNTS math).
   T2HLT = 0x00;           // Free-running mode
   T2RST = 0x00;           // No reset source
-  T2CONbits.T2CKPS = 0;   // 1:1 prescale
+  T2CONbits.T2CKPS = BB_UART_TMR2_PRESCALE_BITS;   // prescale for bitbang tick
   T2CONbits.T2OUTPS = 0;  // 1:1 postscale
   PR2 = BB_UART_TMR2_PR2;
   TMR2 = 0;
