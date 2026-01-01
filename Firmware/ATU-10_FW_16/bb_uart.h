@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#ifdef EXT_BITBANG_UART_TEST
+#ifdef EXT_SERIAL_DEBUG
 void bb_uart_tx_isr_tick(void);
 void bb_uart_tx_init(void);
 bool bb_uart_tx_has_space(void);

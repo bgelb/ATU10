@@ -1,6 +1,6 @@
 #include "bb_uart.h"
 
-#ifdef EXT_BITBANG_UART_TEST
+#ifdef EXT_SERIAL_DEBUG
 #include "pic_init.h"
 
 #define BB_UART_TX_BUF_SIZE 16u
