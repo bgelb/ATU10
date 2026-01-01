@@ -27,7 +27,7 @@
 #define Rel_to_gnd       LATDbits.LATD3
 #define Rel_to_plus_N    LATCbits.LATC4
 
-#ifdef EXT_BITBANG_UART_TEST
+#ifdef EXT_SERIAL_DEBUG
 // Timer2 tick for 4x oversampled bitbang TX.
 #define BB_UART_BAUD 1200u
 #define BB_UART_OVERSAMPLE 4u

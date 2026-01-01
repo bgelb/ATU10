@@ -45,10 +45,21 @@ const unsigned char Cells[10] __at(0x7770) = {0x05, 0x30, 0x07, 0x10, 0x15, 0x13
 #define GIT_HASH "unknown"
 #endif
 
-#ifdef EXT_BITBANG_UART_TEST
-static void ext_bitbang_uart_test(void);
+#ifdef EXT_SERIAL_DEBUG
+static void serial_debug_init(void);
+static void serial_debug_poll(void);
 #endif
 
+static void reset_event_flags(void){
+   B_short = false;
+   B_long = false;
+   B_xlong = false;
+   E_short = false;
+   E_long = false;
+   btn_1_cnt = 0;
+   btn_2_cnt = 0;
+   btn_cnt = Tick;
+}
 
 // interrupt processing
 void __interrupt() isr(void)  {
@@ -63,7 +74,11 @@ void __interrupt() isr(void)  {
       if(Tick>=btn_cnt){  // every 10ms
          btn_cnt += 10;
          //
+#ifdef EXT_SERIAL_DEBUG
+         if(GetButton){
+#else
          if(GetButton | Start){
+#endif
             disp_cnt = Disp_time;
             off_cnt = Off_time;
          }
@@ -80,6 +95,7 @@ void __interrupt() isr(void)  {
          else
             btn_1_cnt = 0;
          //  External interface
+#ifndef EXT_SERIAL_DEBUG
          if(Start){
             if(btn_2_cnt<25) btn_2_cnt++;
             if(btn_2_cnt==20 && Key_in) E_long = 1;
@@ -90,9 +106,10 @@ void __interrupt() isr(void)  {
          }
          else
             btn_2_cnt = 0;
+#endif
       }
    }
-#ifdef EXT_BITBANG_UART_TEST
+#ifdef EXT_SERIAL_DEBUG
    if(PIR4bits.TMR2IF) {
       PIR4bits.TMR2IF = 0;
       bb_uart_tx_isr_tick();
@@ -104,18 +121,14 @@ void __interrupt() isr(void)  {
 
 void main() {
    pic_init();
+   reset_event_flags();
    cells_reading();
    Red = 1;
    Key_out = 1;
    gre = 1;
    oled_start();
-#ifdef EXT_BITBANG_UART_TEST
-   oled_clear();
-   oled_wr_str_s(0, 0, "EXT UART", 8);
-   oled_wr_str_s(1, 0, "BITBANG", 7);
-   oled_wr_str_s(2, 0, "1200 8N1", 9);
-   oled_wr_str_s(3, 0, "RD1 ONLY", 8);
-   ext_bitbang_uart_test();
+#ifdef EXT_SERIAL_DEBUG
+   serial_debug_init();
 #endif
    //if(Debug) check_reset_flags();
    ADC_Init();
@@ -136,6 +149,9 @@ void main() {
          watch_cnt += 300;
          watch_swr();
       }
+#ifdef EXT_SERIAL_DEBUG
+      serial_debug_poll();
+#endif
       //
       if(Disp_time!=0 && disp_cnt==0){  // Display off
          //Disp = 0;
@@ -159,6 +175,7 @@ void main() {
          else oled_start();
       }
       // External interface
+#ifndef EXT_SERIAL_DEBUG
       if(E_short){
          if(OLED_PWD==0) oled_start();
          Btn_short();
@@ -167,6 +184,7 @@ void main() {
          if(OLED_PWD==0) { Ext_long(); oled_start(); }
          else Btn_long();
       }
+#endif
     
   } // while(1)
 } // main
@@ -488,10 +506,253 @@ void Relay_set(char L, char C, char I){
    return;
 }
 //
-#ifdef EXT_BITBANG_UART_TEST
-// Bit-banged TX on RD1 (open-drain) for EXT UART wiring checks.
-static void ext_bitbang_uart_test(void){
-   // ensure PPS is configures so that RD1 and RD2 behave as regular GPIOs.
+#ifdef EXT_SERIAL_DEBUG
+#define DEBUG_UART_CMD_BUF_SIZE 24u
+
+static char serial_debug_cmd_buf[DEBUG_UART_CMD_BUF_SIZE];
+static uint8_t serial_debug_cmd_len = 0u;
+static uint8_t serial_debug_saw_cr = 0u;
+
+static void serial_debug_putc(char c){
+   char buf[2];
+   buf[0] = c;
+   buf[1] = '\0';
+   bb_uart_tx_puts_blocking(buf);
+}
+
+static void serial_debug_puts(const char *s){
+   bb_uart_tx_puts_blocking(s);
+}
+
+static void serial_debug_queue_uint8(uint8_t value){
+   char buf[4];
+   uint8_t len = 0u;
+   uint8_t i = 0u;
+   if(value >= 100u){
+      buf[len++] = (char)('0' + (value / 100u));
+      value = (uint8_t)(value % 100u);
+   }
+   if(value >= 10u || len != 0u){
+      buf[len++] = (char)('0' + (value / 10u));
+      value = (uint8_t)(value % 10u);
+   }
+   buf[len++] = (char)('0' + value);
+   for(i = 0u; i < len; i++){
+      serial_debug_putc(buf[i]);
+   }
+}
+
+static void serial_debug_queue_swr(uint16_t value){
+   uint8_t whole = (uint8_t)(value / 100u);
+   uint8_t frac = (uint8_t)(value % 100u);
+   serial_debug_putc((char)('0' + whole));
+   serial_debug_putc('.');
+   serial_debug_putc((char)('0' + (frac / 10u)));
+   serial_debug_putc((char)('0' + (frac % 10u)));
+}
+
+static void serial_debug_prompt(void){
+   serial_debug_puts("-> ");
+}
+
+static void serial_debug_print_config(void){
+   uint8_t swr_valid = 0u;
+   get_pwr();
+   if((PWR >= min_for_start) && (PWR <= max_for_start)){
+      get_swr();
+      swr_valid = 1u;
+   }
+   serial_debug_puts("L=");
+   serial_debug_queue_uint8((uint8_t)ind);
+   serial_debug_puts(" C=");
+   serial_debug_queue_uint8((uint8_t)cap);
+   serial_debug_puts(" SW=");
+   serial_debug_queue_uint8((uint8_t)SW);
+   serial_debug_puts(" SWR=");
+   if(swr_valid){
+      serial_debug_queue_swr((uint16_t)SWR);
+   }else{
+      serial_debug_putc('x');
+   }
+   serial_debug_puts("\n");
+}
+
+static void serial_debug_apply_relays(void){
+   Relay_set(ind, cap, SW);
+}
+
+static uint8_t serial_debug_parse_uint8(const char *s, uint8_t *out){
+   uint16_t value = 0u;
+   uint8_t saw_digit = 0u;
+   while((*s == ' ') || (*s == '\t')){
+      s++;
+   }
+   while((*s >= '0') && (*s <= '9')){
+      saw_digit = 1u;
+      value = (uint16_t)(value * 10u + (uint16_t)(*s - '0'));
+      if(value > 255u){
+         value = 255u;
+      }
+      s++;
+   }
+   if(!saw_digit){
+      return 0u;
+   }
+   if(value > 127u){
+      value = 127u;
+   }
+   *out = (uint8_t)value;
+   return 1u;
+}
+
+static void serial_debug_adjust_cap(int delta){
+   int value = (int)cap + delta;
+   if(value < 0){
+      value = 0;
+   }else if(value > 127){
+      value = 127;
+   }
+   cap = (char)value;
+   serial_debug_apply_relays();
+}
+
+static void serial_debug_adjust_ind(int delta){
+   int value = (int)ind + delta;
+   if(value < 0){
+      value = 0;
+   }else if(value > 127){
+      value = 127;
+   }
+   ind = (char)value;
+   serial_debug_apply_relays();
+}
+
+static void serial_debug_handle_command(void){
+   const char *p = serial_debug_cmd_buf;
+   char cmd = 0;
+   uint8_t value = 0u;
+   uint8_t ok = 0u;
+   if(serial_debug_cmd_len == 0u){
+      serial_debug_prompt();
+      return;
+   }
+   serial_debug_cmd_buf[serial_debug_cmd_len] = '\0';
+   while((*p == ' ') || (*p == '\t')){
+      p++;
+   }
+   if(*p == '\0'){
+      serial_debug_cmd_len = 0u;
+      serial_debug_prompt();
+      return;
+   }
+   cmd = *p++;
+   switch(cmd){
+      case 'l':
+      case 'L':
+         ok = serial_debug_parse_uint8(p, &value);
+         if(ok){
+            ind = (char)value;
+            serial_debug_apply_relays();
+            serial_debug_print_config();
+         }else{
+            serial_debug_puts("ERR\n");
+         }
+         break;
+      case 'c':
+      case 'C':
+         ok = serial_debug_parse_uint8(p, &value);
+         if(ok){
+            cap = (char)value;
+            serial_debug_apply_relays();
+            serial_debug_print_config();
+         }else{
+            serial_debug_puts("ERR\n");
+         }
+         break;
+      case 't':
+      case 'T':
+         ok = serial_debug_parse_uint8(p, &value);
+         if(ok && (value <= 1u)){
+            SW = (char)value;
+            serial_debug_apply_relays();
+            serial_debug_print_config();
+         }else{
+            serial_debug_puts("ERR\n");
+         }
+         break;
+      case 'r':
+      case 'R':
+         serial_debug_print_config();
+         break;
+      default:
+         serial_debug_puts("ERR\n");
+         break;
+   }
+   serial_debug_cmd_len = 0u;
+   serial_debug_prompt();
+}
+
+static uint8_t serial_debug_handle_immediate(char c){
+   if(serial_debug_cmd_len != 0u){
+      return 0u;
+   }
+   switch(c){
+      case 'a':
+         serial_debug_adjust_cap(-1);
+         serial_debug_print_config();
+         serial_debug_prompt();
+         return 1u;
+      case 'd':
+         serial_debug_adjust_cap(1);
+         serial_debug_print_config();
+         serial_debug_prompt();
+         return 1u;
+      case 's':
+         serial_debug_adjust_ind(-1);
+         serial_debug_print_config();
+         serial_debug_prompt();
+         return 1u;
+      case 'w':
+         serial_debug_adjust_ind(1);
+         serial_debug_print_config();
+         serial_debug_prompt();
+         return 1u;
+      default:
+         return 0u;
+   }
+}
+
+static void serial_debug_poll_rx(void){
+   while(bb_uart_rx_has_data()){
+      uint8_t c = 0u;
+      if(!bb_uart_rx_dequeue(&c)){
+         break;
+      }
+      if((c == '\r') || (c == '\n')){
+         if((c == '\n') && serial_debug_saw_cr){
+            serial_debug_saw_cr = 0u;
+            continue;
+         }
+         serial_debug_saw_cr = (c == '\r') ? 1u : 0u;
+         serial_debug_putc('\n');
+         serial_debug_handle_command();
+         continue;
+      }
+      serial_debug_saw_cr = 0u;
+      if(serial_debug_handle_immediate((char)c)){
+         continue;
+      }
+      serial_debug_putc((char)c);
+      if(serial_debug_cmd_len < (DEBUG_UART_CMD_BUF_SIZE - 1u)){
+         serial_debug_cmd_buf[serial_debug_cmd_len++] = (char)c;
+      }else{
+         serial_debug_cmd_len = 0u;
+      }
+   }
+}
+
+static void serial_debug_init(void){
+   // ensure PPS is configured so that RD1 and RD2 behave as regular GPIOs.
    PPSLOCK = 0x55;
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 0;
@@ -501,26 +762,17 @@ static void ext_bitbang_uart_test(void){
    PPSLOCK = 0xAA;
    PPSLOCKbits.PPSLOCKED = 1;
 
+   serial_debug_cmd_len = 0u;
+   serial_debug_saw_cr = 0u;
+
    bb_uart_tx_init();
 
-   bb_uart_tx_puts_blocking("\r\nBITBANG UART 1200 OK\r\n");
-   bb_uart_tx_puts_blocking("Pattern: ");
-   for(uint8_t i=0; i<32; i++){
-      while(!bb_uart_tx_has_space()) { }
-      (void)bb_uart_tx_enqueue('U'); // 0x55 pattern
-   }
-   bb_uart_tx_puts_blocking("\r\n");
+   serial_debug_puts("\nDEBUG UART READY\n");
+   serial_debug_prompt();
+}
 
-   while(1){
-      if(bb_uart_rx_has_data()){
-         uint8_t c = 0;
-         if(bb_uart_rx_dequeue(&c)){
-            while(!bb_uart_tx_has_space()) { }
-            (void)bb_uart_tx_enqueue(c);
-         }
-      }
-      Delay_ms(10);
-   }
+static void serial_debug_poll(void){
+   serial_debug_poll_rx();
 }
 #endif
 
