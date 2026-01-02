@@ -527,10 +527,6 @@ static void serial_debug_puts(const char *s){
 }
 
 #define TRACE_ENTRY_LEN 11u
-#define TUNE_START_LEN 8u
-#define TUNE_COMPLETE_LEN 7u
-#define TUNE_COARSE_LEN 9u
-#define TUNE_SHARP_LEN 8u
 
 static void serial_debug_queue_bytes(const char *s, uint8_t len){
    uint8_t i = 0u;
@@ -565,20 +561,18 @@ static void serial_debug_trace_swr(uint16_t swr_value){
    serial_debug_queue_bytes(buf, TRACE_ENTRY_LEN);
 }
 
-static void serial_debug_trace_tune_start(void){
-   serial_debug_queue_bytes("TSTART\r\n", TUNE_START_LEN);
-}
-
-static void serial_debug_trace_tune_complete(void){
-   serial_debug_queue_bytes("TDONE\r\n", TUNE_COMPLETE_LEN);
-}
-
-static void serial_debug_trace_tune_coarse(void){
-   serial_debug_queue_bytes("TCOARSE\r\n", TUNE_COARSE_LEN);
-}
-
-static void serial_debug_trace_tune_sharp(void){
-   serial_debug_queue_bytes("TSHARP\r\n", TUNE_SHARP_LEN);
+static void serial_debug_trace_phase_marker(const char *marker, uint8_t len){
+   uint8_t i = 0u;
+   uint8_t needed = (uint8_t)(len + 3u);
+   if(bb_uart_tx_free() < needed){
+      return;
+   }
+   (void)bb_uart_tx_enqueue((uint8_t)'T');
+   for(i = 0u; i < len; i++){
+      (void)bb_uart_tx_enqueue((uint8_t)marker[i]);
+   }
+   (void)bb_uart_tx_enqueue((uint8_t)'\r');
+   (void)bb_uart_tx_enqueue((uint8_t)'\n');
 }
 
 static void serial_debug_queue_uint8(uint8_t value){
@@ -843,18 +837,14 @@ static void serial_debug_poll(void){
 #endif
 
 #ifdef EXT_SERIAL_DEBUG
+#define TRACE_PHASE(marker_literal) \
+   serial_debug_trace_phase_marker((marker_literal), (uint8_t)(sizeof(marker_literal) - 1u))
 #define TRACE_SWR() serial_debug_trace_swr((uint16_t)SWR)
-#define TRACE_TUNE_START() serial_debug_trace_tune_start()
-#define TRACE_TUNE_COMPLETE() serial_debug_trace_tune_complete()
-#define TRACE_TUNE_COARSE() serial_debug_trace_tune_coarse()
-#define TRACE_TUNE_SHARP() serial_debug_trace_tune_sharp()
 #else
+#define TRACE_PHASE(marker_literal) do { } while(0)
 #define TRACE_SWR() do { } while(0)
-#define TRACE_TUNE_START() do { } while(0)
-#define TRACE_TUNE_COMPLETE() do { } while(0)
-#define TRACE_TUNE_COARSE() do { } while(0)
-#define TRACE_TUNE_SHARP() do { } while(0)
 #endif
+#define GET_SWR_AND_TRACE() do { get_swr(); TRACE_SWR(); } while(0)
 
 void power_off(void){
    char button_cnt;
@@ -1072,38 +1062,33 @@ void tune(void){
    int SWR_mem;
    char cap_mem, ind_mem;
    //
-   TRACE_TUNE_START();
-   get_swr();
-   TRACE_SWR();
-   if(SWR<=120) { TRACE_TUNE_COMPLETE(); return; }
+   TRACE_PHASE("START");
+   GET_SWR_AND_TRACE();
+   if(SWR<=120) { TRACE_PHASE("DONE"); return; }
    subtune();
-   get_swr();
-   TRACE_SWR();
-   if(SWR<=120) { TRACE_TUNE_COMPLETE(); return; }
+   GET_SWR_AND_TRACE();
+   if(SWR<=120) { TRACE_PHASE("DONE"); return; }
    SWR_mem = SWR;
    cap_mem = cap;
    ind_mem = ind;
    if(SW==1) SW = 0;
    else SW = 1;
    subtune();
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR>SWR_mem){
       if(SW==1) SW = 0;
       else SW = 1;
       cap = cap_mem;
       ind = ind_mem;
       Relay_set(ind, cap, SW);
-      get_swr();
-      TRACE_SWR();
+      GET_SWR_AND_TRACE();
    }
-   if(SWR<=120) { TRACE_TUNE_COMPLETE(); return; }
+   if(SWR<=120) { TRACE_PHASE("DONE"); return; }
    sharp_tune();
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR==999)
       atu_reset();
-   TRACE_TUNE_COMPLETE();
+   TRACE_PHASE("DONE");
    return;
 }
 //
@@ -1111,12 +1096,10 @@ void subtune(void){
    cap = 0;
    ind = 0;
    Relay_set(ind, cap, SW);
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR<=120) return;
    coarse_tune();
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR<=120) return;
    sharp_tune();
    return;
@@ -1125,11 +1108,10 @@ void subtune(void){
 void coarse_tune(void){
    int SWR_mem1 = 10000, SWR_mem2 = 10000, SWR_mem3 = 10000;
    char ind_mem1, cap_mem1, ind_mem2, cap_mem2, ind_mem3, cap_mem3;
-   TRACE_TUNE_COARSE();
+   TRACE_PHASE("COARSE");
    coarse_cap();
    coarse_ind();
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR<=120) return;
    SWR_mem1 = SWR;
    ind_mem1 = ind;
@@ -1140,8 +1122,7 @@ void coarse_tune(void){
       Relay_set(ind, cap, SW);
       coarse_ind();
       coarse_cap();
-      get_swr();
-      TRACE_SWR();
+      GET_SWR_AND_TRACE();
       if(SWR<=120) return;
       SWR_mem2 = SWR;
       ind_mem2 = ind;
@@ -1152,8 +1133,7 @@ void coarse_tune(void){
       ind = 0;
       Relay_set(ind, cap, SW);
       coarse_ind_cap();
-      get_swr();
-      TRACE_SWR();
+      GET_SWR_AND_TRACE();
       if(SWR<=120) return;
       SWR_mem3 = SWR;
       ind_mem3 = ind;
@@ -1178,13 +1158,11 @@ void coarse_ind_cap(void){
    int SWR_mem;
    char ind_mem;
    ind_mem = 0;
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    SWR_mem = SWR / 10;
    for(ind=1; ind<64; ind*=2){
       Relay_set(ind, ind, SW);
-      get_swr();
-      TRACE_SWR();
+      GET_SWR_AND_TRACE();
       SWR = SWR/10;
       if(SWR<=SWR_mem){
          ind_mem = ind;
@@ -1203,13 +1181,11 @@ void coarse_cap(void){
    int SWR_mem;
    char cap_mem;
    cap_mem = 0;
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    SWR_mem = SWR / 10;
    for(cap=1; cap<64; cap*=2){
       Relay_set(ind, cap, SW);
-      get_swr();
-      TRACE_SWR();
+      GET_SWR_AND_TRACE();
       SWR = SWR/10;
       if(SWR<=SWR_mem){
          cap_mem = cap;
@@ -1227,13 +1203,11 @@ void coarse_ind(void){
    int SWR_mem;
    char ind_mem;
    ind_mem = 0;
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    SWR_mem = SWR / 10;
    for(ind=1; ind<64; ind*=2){
       Relay_set(ind, cap, SW);
-      get_swr();
-      TRACE_SWR();
+      GET_SWR_AND_TRACE();
       SWR = SWR/10;
       if(SWR<=SWR_mem){
          ind_mem = ind;
@@ -1248,7 +1222,7 @@ void coarse_ind(void){
 }
 //
 void sharp_tune(void){
-   TRACE_TUNE_SHARP();
+   TRACE_PHASE("SHARP");
    if(cap>=ind){
       sharp_cap();
       sharp_ind();
@@ -1266,20 +1240,17 @@ void sharp_cap(void){
    cap_mem = cap;
    step = cap / 10;
    if(step==0) step = 1;
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    SWR_mem = SWR;
    cap += step;
    Relay_set(ind, cap, SW);
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR<=SWR_mem){
       SWR_mem = SWR;
       cap_mem = cap;
       for(cap+=step; cap<=(127-step); cap+=step){
          Relay_set(ind, cap, SW);
-         get_swr();
-         TRACE_SWR();
+         GET_SWR_AND_TRACE();
          if(SWR<=SWR_mem){
             cap_mem = cap;
             SWR_mem = SWR;
@@ -1294,8 +1265,7 @@ void sharp_cap(void){
       SWR_mem = SWR;
       for(cap-=step; cap>=step; cap-=step){
          Relay_set(ind, cap, SW);
-         get_swr();
-         TRACE_SWR();
+         GET_SWR_AND_TRACE();
          if(SWR<=SWR_mem){
             cap_mem = cap;
             SWR_mem = SWR;
@@ -1317,20 +1287,17 @@ void sharp_ind(void){
    ind_mem = ind;
    step = ind / 10;
    if(step==0) step = 1;
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    SWR_mem = SWR;
    ind += step;
    Relay_set(ind, cap, SW);
-   get_swr();
-   TRACE_SWR();
+   GET_SWR_AND_TRACE();
    if(SWR<=SWR_mem){
       SWR_mem = SWR;
       ind_mem = ind;
       for(ind+=step; ind<=(127-step); ind+=step){
          Relay_set(ind, cap, SW);
-         get_swr();
-         TRACE_SWR();
+         GET_SWR_AND_TRACE();
          if(SWR<=SWR_mem){
             ind_mem = ind;
             SWR_mem = SWR;
@@ -1345,8 +1312,7 @@ void sharp_ind(void){
       SWR_mem = SWR;
       for(ind-=step; ind>=step; ind-=step){
          Relay_set(ind, cap, SW);
-         get_swr();
-         TRACE_SWR();
+         GET_SWR_AND_TRACE();
          if(SWR<=SWR_mem){
             ind_mem = ind;
             SWR_mem = SWR;

@@ -21,6 +21,7 @@ Typed commands are echoed back; press CR/LF to submit.
 Notes:
 - Auto-start tuning is disabled in `EXT_SERIAL_DEBUG` builds.
 - `T` is synchronous: the console won't accept new commands until tuning completes, and it will time out if RF power isn't in the expected range.
+- When tracing is enabled, use at least 9600 baud to avoid slowing tuning; 19200 is recommended.
 - During tuning, trace lines are emitted as `TLLCCWSSS` (hex L/C, SW 0/1, and SWR as 3 digits). The console also prints `TSTART`, `TCOARSE`, `TSHARP`, and `TDONE`.
 
 # ATU-10  - The Tyny QRP Automatic Antenna Tuner
