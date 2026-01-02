@@ -58,6 +58,13 @@ bool bb_uart_tx_has_space(void){
    return has_space;
 }
 
+uint8_t bb_uart_tx_free(void){
+   uint8_t gie = bb_uart_irq_save();
+   uint8_t free_space = (uint8_t)(BB_UART_TX_BUF_SIZE - data_to_send_count);
+   bb_uart_irq_restore(gie);
+   return free_space;
+}
+
 bool bb_uart_tx_enqueue(uint8_t c){
    uint8_t gie = bb_uart_irq_save();
    if(data_to_send_count >= BB_UART_TX_BUF_SIZE){
@@ -226,10 +233,6 @@ void bb_uart_tx_init(void){
 
 void bb_uart_tx_puts_blocking(const char *s){
    while(*s){
-      if(*s=='\n'){
-         while(!bb_uart_tx_has_space()) { }
-         (void)bb_uart_tx_enqueue('\r');
-      }
       while(!bb_uart_tx_has_space()) { }
       (void)bb_uart_tx_enqueue((uint8_t)*s++);
    }

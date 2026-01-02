@@ -8,6 +8,7 @@
 void bb_uart_tx_isr_tick(void);
 void bb_uart_tx_init(void);
 bool bb_uart_tx_has_space(void);
+uint8_t bb_uart_tx_free(void);
 bool bb_uart_tx_enqueue(uint8_t c);
 void bb_uart_tx_puts_blocking(const char *s);
 bool bb_uart_rx_has_data(void);
