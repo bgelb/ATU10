@@ -7,7 +7,7 @@ This fork adds an XC8-based build of firmware 1.6 (the original used mikroC). Us
 ## Serial debug mode (EXT_SERIAL_DEBUG)
 Enable with `make EXT_SERIAL_DEBUG=1`. This keeps normal ATU-10 behavior intact and adds a bit-banged UART on RD1 (TX) / RD2 (RX). RD1/RD2 are routed to the EXT jack, so you can connect a USB/serial cable (example: https://www.amazon.com/dp/B0CDV4L7Q7) to access the console.
 
-Baud rate is limited to 1200 8N1 because RD2 has a 100 nF capacitor and 1 K series resistor that low-pass filters the incoming serial line. Higher baud rates are unreliable. When `EXT_SERIAL_DEBUG` is enabled, the EXT jack external-control behavior is disabled to avoid pin conflicts.
+Baud rate is limited to 1200 8N1 because RD2 has a 100 nF capacitor and 1 K series resistor that low-pass filters the incoming serial line. Higher baud rates are unreliable unless you remove C8, C9, C10, and C11 (the EXT jack RC network). When `EXT_SERIAL_DEBUG` is enabled, the EXT jack external-control behavior is disabled to avoid pin conflicts.
 
 Commands (prompt shows `->`):
 - `L <0-127>` set inductor.
