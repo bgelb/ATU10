@@ -278,12 +278,14 @@ void watch_swr(void){
    }
    //
 
+#ifndef EXT_SERIAL_DEBUG
    else if(Auto && PWR_fixed>=min_for_start && PWR_fixed<max_for_start && SWR_fixed>120) {
        if(  (SWR_fixed-SWR_fixed_old)>delta || (SWR_fixed_old-SWR_fixed)>delta || SWR_fixed>(999-delta) ) {
            Btn_long();
            return;
        }
    }
+#endif
    //
    return;
 }
@@ -671,6 +673,15 @@ static void serial_debug_handle_command(void){
          break;
       case 't':
       case 'T':
+         if(OLED_PWD){
+            Btn_long();
+         }else{
+            oled_start();
+         }
+         serial_debug_print_config();
+         break;
+      case 'n':
+      case 'N':
          ok = serial_debug_parse_uint8(p, &value);
          if(ok && (value <= 1u)){
             SW = (char)value;

@@ -12,10 +12,15 @@ Baud rate is limited to 1200 8N1 because RD2 has a 100 nF capacitor and 1 K seri
 Commands (prompt shows `->`):
 - `L <0-127>` set inductor.
 - `C <0-127>` set capacitor.
-- `T <0|1>` set topology (SW relay).
+- `N <0|1>` set network (SW relay).
+- `T` tune (same as long-press).
 - `R` read current config.
 - Instant commands (only on a clean prompt): `a`/`d` adjust capacitor down/up by 1, `s`/`w` adjust inductor down/up by 1.
 Typed commands are echoed back; press CR/LF to submit.
+
+Notes:
+- Auto-start tuning is disabled in `EXT_SERIAL_DEBUG` builds.
+- `T` is synchronous: the console won't accept new commands until tuning completes, and it will time out if RF power isn't in the expected range.
 
 # ATU-10  - The Tyny QRP Automatic Antenna Tuner
 
